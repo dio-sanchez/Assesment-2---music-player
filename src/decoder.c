@@ -1,13 +1,12 @@
 #include <stdint.h>     //inclueaded for specific integrer types and lengths
 #include <stdio.h>      //included for input and outut functions
-#include
 
 //follows the math of 
 
-int main(void){
+int main(void){ 
 
     //ALL posible values of base64, which are the values of ASCII characters
-    static const unsigned char b64_decoding_table[ASCII_RANGE] = {
+    static const  char b64_decoding_table[ASCII_RANGE] = {
         [0 ... (ASCII_RANGE - 1)] = 64, 
         ['A'] = 0,  ['B'] = 1,  ['C'] = 2,  ['D'] = 3,
         ['E'] = 4,  ['F'] = 5,  ['G'] = 6,  ['H'] = 7,
