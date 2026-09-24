@@ -18,9 +18,9 @@ void init_ports(void) {
     PORTA.PIN7CTRL |= PORT_PULLUPEN_bm | PORT_ISC_FALLING_gc;
 }
 void init_display(void) {
-    PORTA.PIN1CTRL |= PIN1_bm; //set pin 1 as output for the display
-    PORTC.PIN0CTRL |= PIN0_bm;
-    PORTC.PIN2CTRL |= PIN2_bm;
+    PORTA.PIN1CTRL |= PORT_PULLUPEN_bm; //set pin 1 as output for the display
+    PORTC.PIN0CTRL |= PORT_PULLUPEN_bm;
+    PORTC.PIN2CTRL |= PORT_PULLUPEN_bm;
 }
 
 
