@@ -4,6 +4,21 @@
 #include <avr/interrupt.h>
 #include "initialisation.h"
 
+typedef enum {
+    TRACK_SELECT,
+    PLAYING,
+    PAUSED
+} State_t;
+
+typedef enum {
+    S1_HOLD,
+    S1_RELEASED,
+    S2_PRESSED,
+    S3_PRESSED,
+    S4_PRESSED
+} Events;
+
+extern State_t State;
 
 //global variable that holds the current state
 //first initialised in the track selection state
@@ -26,7 +41,8 @@ void init_display(void) {
 
 
 //sets the event when a buttons is pressed, any change in the state is handled here
-void handle_event(Events event) {
+
+/*void handle_event(Events event) {
     switch (State) {
         case TRACK_SELECT:
             switch (event) {
@@ -67,4 +83,5 @@ void handle_event(Events event) {
             }
             break;
     }
-}
+} i dont need a switch function when i can just use interrupot flags
+*/ 

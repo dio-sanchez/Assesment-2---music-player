@@ -6,8 +6,8 @@
 int main(void){ 
 
     //ALL posible values of base64, which are the values of ASCII characters
-    static const  char b64_decoding_table[ASCII_RANGE] = {
-        [0 ... (ASCII_RANGE - 1)] = 64, 
+    static const  char b64_decoding_table[/*i dont remember how i started this*/] = {
+        [0 ... (/*randomw*/ - 1)] = 64, 
         ['A'] = 0,  ['B'] = 1,  ['C'] = 2,  ['D'] = 3,
         ['E'] = 4,  ['F'] = 5,  ['G'] = 6,  ['H'] = 7,
         ['I'] = 8,  ['J'] = 9,  ['K'] = 10, ['L'] = 11,

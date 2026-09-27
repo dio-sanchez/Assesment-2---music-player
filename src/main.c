@@ -4,7 +4,7 @@
 #include <avr/interrupt.h>
 #include "initialisation.h"
 
-typedef enum {
+extern enum {
     TRACK_SELECT,
     PLAYING,
     PAUSED
