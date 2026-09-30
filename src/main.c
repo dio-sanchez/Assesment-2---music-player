@@ -4,15 +4,54 @@
 #include <avr/interrupt.h>
 #include "initialisation.h"
 
-extern enum {
+typedef enum {
     TRACK_SELECT,
     PLAYING,
     PAUSED
-} State;
+} machine_state;
+
+machine_state state = TRACK_SELECT;
+
 
 void state_machine(void) {
   while (1) {
-    // Implement your main loop here
+   switch (state)
+   {
+   case TRACK_SELECT:
+    if (!(PORTA.IN & PIN4_bm))
+    {
+      state = PLAYING;
+      display('Play');
+    }
+    break;
+
+
+   case PLAYING:
+    if (!(PORTA.IN & PIN6_bm))
+    {
+      state = PAUSED;
+      display('Pause');
+    } else if (!(PORTA.IN & PIN7_bm)) {
+      state = TRACK_SELECT;
+      display('Selecting');
+    }
+    break;
+    
+
+    case PAUSED:
+    if (!(PORTA.IN & PIN4_bm))
+    {
+      state = PLAYING;
+      display('Play');
+    } else if (!(PORTA.IN & PIN7_bm)) {
+      state = TRACK_SELECT;
+      display('Selecting');
+    }
+    break;
+
+   default:
+    break;
+   }
   }
 }
 
