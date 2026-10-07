@@ -8,21 +8,12 @@ typedef enum {
     TRACK_SELECT,
     PLAYING,
     PAUSED
-} State_t;
+} mp3_state;
 
-typedef enum {
-    S1_HOLD,
-    S1_RELEASED,
-    S2_PRESSED,
-    S3_PRESSED,
-    S4_PRESSED
-} Events;
-
-extern State_t State;
 
 //global variable that holds the current state
 //first initialised in the track selection state
-State_t State = TRACK_SELECT;
+mp3_state state = TRACK_SELECT;
 
 
 //initialises the programs with all the buttons set to pull up resistors and falling edge interrupts
