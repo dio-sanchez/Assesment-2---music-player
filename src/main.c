@@ -25,6 +25,19 @@ void state_machine(void)
         state = PLAYING;
         display('Play');
       }
+      if (PORTA.IN & PIN4_bm) //while the button is pressed activate the potentiometer
+      {
+        /* code */
+      }
+      if (!(PORTA.IN & PIN5_bm))
+      {
+        /* code */
+      }
+      if (!(PORTA.IN & PIN6_bm))
+      {
+        /* code */
+      }
+      
       break;
 
     case PLAYING:
@@ -51,6 +64,14 @@ void state_machine(void)
         state = TRACK_SELECT;
         display('Selecting');
       }
+      if (PORTA.IN & PIN4_bm) //while the button is pressed activate the potentiometer
+      {
+        /* code */
+      }
+      if (!(PORTA.IN & PIN5_bm))
+      {
+        /* code */
+      }
       break;
 
     default:
@@ -71,44 +92,7 @@ int main(void)
 
   state_machine();
 
-  while (state = PLAYING)
-  {
-    /* code to play music, run the decoder with the current song (seek value) and multiplier 
-    for this the only periferals being used are the buzzer and the timer*/
-  }
 
-  while (state = PAUSED)
-  {
-    while (PORTA.IN & PIN4_bm)
-    {
-      /* activate potentiometer */
-    }
-
-    if (!(PORTA.IN & PIN5_bm))
-    {
-      /* skip track, apply next instruction */
-    }
-    
-  }
-  
-  while (state = TRACK_SELECT)
-  {
-    if (!(PORTA.IN & PIN5_bm))
-    {
-      /* prev track */
-    }
-    if (!(PORTA.IN & PIN6_bm))
-    {
-      /* next track */
-    }
-    while (PORTA.IN & PIN4_bm)
-    {
-      /* activate potentiometer */
-    }
-    
-    
-  }
-  
   
   // The program should not reach this point
   while (1)
