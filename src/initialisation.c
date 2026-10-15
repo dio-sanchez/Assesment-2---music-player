@@ -25,6 +25,10 @@ void display_init(void) {
     PORTA.OUTSET = PIN1_bm;        // DISP_LATCH initial high
     PORTA.DIRSET = PIN1_bm;        // set DISP_LATCH pin as output
 
+    PORTB.OUTSET = PIN5_bm;        
+    PORTB.DIRSET = PIN5_bm;         //set disp dp as an output
+
+
     SPI0.CTRLA = SPI_MASTER_bm;    // Master, /4 prescaler, MSB first
     SPI0.CTRLB = SPI_SSD_bm;       // Mode 0, client select disable, unbuffered
     SPI0.INTCTRL = SPI_IE_bm;      // Interrupt enable
@@ -33,12 +37,13 @@ void display_init(void) {
 
 
 void timer_init(void) {
-
+    cli(); //disable interrupts 
     // configure TCB1 for a periodic interrupt every 5ms
     TCB1.CTRLB = TCB_CNTMODE_INT_gc;    // Configure TCB1 in periodic interrupt mode
     TCB1.CCMP = 16667;                  // Set interval for 5ms (16667 clocks @ 3.3 MHz)
     TCB1.INTCTRL = TCB_CAPT_bm;         // CAPT interrupt enable
-    TCB1.CTRLA = TCB_ENABLE_bm;         // Enable TCB1
+    TCB1.CTRLA = TCB_ENABLE_bm; 
+    sei(); //enable them back        // Enable TCB1
 }
 
 

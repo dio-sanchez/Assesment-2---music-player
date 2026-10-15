@@ -1,34 +1,37 @@
-#include <stdint.h>     //inclueaded for specific integrer types and lengths
-#include <stdio.h>      //included for input and outut functions
+#include <stdint.h>
+#include <avr/pgmspace.h>
+#include "data.h"
 
-//follows the math of 
+//function to map ase64 characters and corresponding decoded values.
+uint8_t b64_char_to_val(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return 0; 
+}
 
-int main(void){ 
+// decodes a single 3-byte instruction based on its instruction number
+void decode_instruction(uint16_t instruction_number, uint8_t *decoded_bytes) {
+    
+    // Calculate the starting index in the encoded_data array
+    uint32_t start_index = instruction_number * 4;
 
-    //ALL posible values of base64, which are the values of ASCII characters
-    static const  char b64_decoding_table[/*i dont remember how i started this*/] = {
-        [0 ... (/*randomw*/ - 1)] = 64, 
-        ['A'] = 0,  ['B'] = 1,  ['C'] = 2,  ['D'] = 3,
-        ['E'] = 4,  ['F'] = 5,  ['G'] = 6,  ['H'] = 7,
-        ['I'] = 8,  ['J'] = 9,  ['K'] = 10, ['L'] = 11,
-        ['M'] = 12, ['N'] = 13, ['O'] = 14, ['P'] = 15,
-        ['Q'] = 16, ['R'] = 17, ['S'] = 18, ['T'] = 19,
-        ['U'] = 20, ['V'] = 21, ['W'] = 22, ['X'] = 23,
-        ['Y'] = 24, ['Z'] = 25, ['a'] = 26, ['b'] = 27,
-        ['c'] = 28, ['d'] = 29, ['e'] = 30, ['f'] = 31,
-        ['g'] = 32, ['h'] = 33, ['i'] = 34, ['j'] = 35,
-        ['k'] = 36, ['l'] = 37, ['m'] = 38, ['n'] = 39,
-        ['o'] = 40, ['p'] = 41, ['q'] = 42, ['r'] = 43,
-        ['s'] = 44, ['t'] = 45, ['u'] = 46, ['v'] = 47,
-        ['w'] = 48, ['x'] = 49, ['y'] = 50, ['z'] = 51,
-        ['0'] = 52, ['1'] = 53, ['2'] = 54, ['3'] = 55,
-        ['4'] = 56, ['5'] = 57, ['6'] = 58, ['7'] = 59,
-        ['8'] = 60, ['9'] = 61, ['+'] = 62, ['/'] = 63
-    };
+    // gets four Base64 characters from PROGMEM
+    char char1 = pgm_read_byte(&encoded_data[start_index]);
+    char char2 = pgm_read_byte(&encoded_data[start_index + 1]);
+    char char3 = pgm_read_byte(&encoded_data[start_index + 2]);
+    char char4 = pgm_read_byte(&encoded_data[start_index + 3]);
 
-    //step 1 in decoding =>reads the encoded data and divide each character into a group (i say group because later on it will go on to become multiple digits) 
-    //2 calls to the table value  and transforms each group into its numerical value, then reads that numerical as a binary
-    //3the binary will outcome as an 8bit (byte) value so remove the 2 msb that will be 00
-    //4 summ all the values into a single binary value
+    // converting characters to 6-bit values
+    uint8_t val1 = b64_char_to_val(char1);
+    uint8_t val2 = b64_char_to_val(char2);
+    uint8_t val3 = b64_char_to_val(char3);
+    uint8_t val4 = b64_char_to_val(char4);
 
+    // remake intothree bytes using bitwise shifts
+    decoded_bytes[0] = (val1 << 2) | (val2 >> 4);
+    decoded_bytes[1] = ((val2 & 0x0F) << 4) | (val3 >> 2);
+    decoded_bytes[2] = ((val3 & 0x03) << 6) | val4;
 }

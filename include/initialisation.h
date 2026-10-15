@@ -1,6 +1,8 @@
 #ifndef INITIALISATION_H
 #define INITIALISATION_H
 #endif
+
+
 void buttons_init(void);
 void display_init(void);
 void timer_init(void);

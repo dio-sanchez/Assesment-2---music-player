@@ -6,3 +6,33 @@
 //tca 
 
 //tcb
+
+volatile uint8_t pb_debounced_state = 0xFF;
+
+
+ISR(TCB1_INT_vect)
+{
+
+    static uint8_t count0 = 0;
+
+    static uint8_t count1 = 0;
+
+
+    uint8_t pb_sample = PORTA.IN;
+
+    uint8_t pb_changed = pb_sample ^ pb_debounced_state;
+
+
+    count1 = (count1 ^ count0) & pb_changed;
+
+    count0 = ~count0 & pb_changed;
+
+
+    pb_debounced_state ^= count1 & count0;
+
+
+    // Clear interrupt flag.
+
+    TCB1.INTFLAGS = TCB_CAPT_bm;
+
+}

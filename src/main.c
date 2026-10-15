@@ -1,8 +1,15 @@
-#include <stdint.h> //inclueaded for specific integrer types and lengths
-#include <stdio.h>  //included for input and outut functions
-#include "data.c"
+// system headers
+#include <stdint.h>
+#include <stdio.h>
+#include <avr/io.h>
 #include <avr/interrupt.h>
+
+// custom headers
+#include "data.h"
 #include "initialisation.h"
+#include "buzzer.h"
+#include "display.h"
+#include "timer.h"
 
 typedef enum
 {
@@ -11,64 +18,78 @@ typedef enum
   PAUSED
 } machine_state;
 
+
 machine_state state = TRACK_SELECT;
+
+
+uint8_t pb_state = 0xFF;
+uint8_t pb_falling_edge = 0x00;
 
 void state_machine(void)
 {
   while (1)
   {
+    // read and save the state of the buttons
+    uint8_t pb_state_old = pb_state;
+
+    pb_state = pb_debounced_state;
+
+    pb_falling_edge = pb_state_old & ~pb_state;
+
+
+
     switch (state)
     {
     case TRACK_SELECT:
-      if (!(PORTA.IN & PIN7_bm))
+      if (pb_falling_edge & PIN7_bm)
       {
         state = PLAYING;
-        display('Play');
+        printf("PLAYING\n");
       }
-      if (PORTA.IN & PIN4_bm) //while the button is pressed activate the potentiometer
+      if (!(PORTA.IN & PIN4_bm)) // while the button is pressed activate the potentiometer ****** need to figure out how to make it work with the debounced
       {
         /* code */
       }
-      if (!(PORTA.IN & PIN5_bm))
+      if (pb_falling_edge & PIN5_bm)
       {
         /* code */
       }
-      if (!(PORTA.IN & PIN6_bm))
+      if (pb_falling_edge & PIN6_bm)
       {
         /* code */
       }
-      
+
       break;
 
     case PLAYING:
-      if (!(PORTA.IN & PIN6_bm))
+      if (pb_falling_edge & PIN6_bm)
       {
         state = PAUSED;
-        display('Pause');
+        printf("PAUSED\n");
       }
-      else if (!(PORTA.IN & PIN7_bm))
+      else if (pb_falling_edge & PIN7_bm)
       {
         state = TRACK_SELECT;
-        display('Selecting');
+        printf("TRACK SELECT\n");
       }
       break;
 
     case PAUSED:
-      if (!(PORTA.IN & PIN6_bm))
+      if (pb_falling_edge & PIN6_bm)
       {
         state = PLAYING;
-        display('Play');
+        printf("PLAYING\n");
       }
-      else if (!(PORTA.IN & PIN7_bm))
+      else if (pb_falling_edge & PIN7_bm)
       {
         state = TRACK_SELECT;
-        display('Selecting');
+        printf("TRACK SELECT\n");
       }
-      if (PORTA.IN & PIN4_bm) //while the button is pressed activate the potentiometer
+      if (PORTA.IN & PIN4_bm) // while the button is pressed activate the potentiometer
       {
         /* code */
       }
-      if (!(PORTA.IN & PIN5_bm))
+      if (pb_falling_edge & PIN5_bm)
       {
         /* code */
       }
@@ -87,13 +108,14 @@ int main(void)
   display_init();
   timer_init();
   adc_init(); // potentiometer
-  pwm_init(); //pulse width modulation
+  pwm_init(); // pulse width modulation
   sei();
+
+  
+
 
   state_machine();
 
-
-  
   // The program should not reach this point
   while (1)
     ;
