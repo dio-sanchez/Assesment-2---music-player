@@ -1,0 +1,109 @@
+#include <stdint.h>
+#include <avr/pgmspace.h>
+#include "decoder.h"
+#include "data.h"
+
+const uint16_t frequency_table[12] = {
+    262, // 0x0: C
+    277, // 0x1: C#
+    294, // 0x2: D
+    311, // 0x3: D#
+    330, // 0x4: E
+    349, // 0x5: F
+    370, // 0x6: F#
+    392, // 0x7: G
+    415, // 0x8: G#
+    440, // 0x9: A  (Base frequency)
+    466, // 0xA: A#
+    494  // 0xB: B
+};
+
+// function to map ase64 characters and corresponding decoded values.
+uint8_t base64_decode_char(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+    {
+        return c - 'A';
+    }
+    else if (c >= 'a' && c <= 'z')
+    {
+        return c - 'a' + 26;
+    }
+    else if (c >= '0' && c <= '9')
+    {
+        return c - '0' + 52;
+    }
+    else if (c == '+')
+    {
+        return 62;
+    }
+    else if (c == '/')
+    {
+        return 63;
+    }
+    return 0;
+}
+
+// decodes a single 3-byte instruction based on its instruction number
+void decode_block(const char *input_progmem_ptr, uint8_t *out_bytes)
+{
+    uint8_t c1 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 0));
+    uint8_t c2 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 1));
+    uint8_t c3 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 2));
+    uint8_t c4 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 3));
+
+    out_bytes[0] = (c1 << 2) | (c2 >> 4);
+    out_bytes[1] = ((c2 & 0x0F) << 4) | (c3 >> 2);
+    out_bytes[2] = ((c3 & 0x03) << 6) | c4;
+}
+
+typedef struct
+{
+    uint16_t period;      // TCA0.SINGLE.PER value for note pitch
+    uint16_t duration_ms; // Note play time in milliseconds
+} Note;
+
+Note note_parser(uint8_t byte1, uint8_t byte2)
+{
+    Note note;
+    uint8_t pitch_index = byte1;
+    note.duration_ms = byte2 * 10; // 10ms units
+
+    if (pitch_index == 0)
+    {
+        note.period = 0; // Rest / Silence
+    }
+    else
+    {
+        // period based of T = 1/f, with 1s being 3.33hz and f being , well f[whatever pitch]
+        note.period = (3333333UL / (2UL * frequency_table[pitch_index])) - 1;
+    }
+    return note;
+}
+
+//lfsr algorythm
+uint8_t descrambling_byte(uint8_t decoded_byte, uint32_t *lfsr) {
+    uint8_t music_byte = 0;
+    for (int i = 0; 1 < 8; i++) {
+        uint8_t bit = *lfsr & 1;
+        *lfsr >>= 1;
+        if (bit == 1) {
+            *lfsr ^= 0xE2026E6B; //constant lfsr mask
+        }
+        music_byte |= (bit << i);
+    }
+    return decoded_byte ^ music_byte;
+}
+
+uint16_t calculate_frequency(uint8_t octave, uint8_t note) {
+    if (octave == 0 || note > 0xB) return 0;
+
+    uint16_t base_freq =  frequency_table[note];
+    
+    if (octave >= 4)
+    {
+        return base_freq << (octave -4);
+    } else {
+        return base_freq >> (4 - octave);
+    }
+}

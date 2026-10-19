@@ -79,10 +79,6 @@ void pwm_init(void)
     TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc;
     TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_SINGLESLOPE_gc | TCA_SINGLE_CMP0EN_bm | TCA_SINGLE_CMP1EN_bm;
 
-    TCA0.SINGLE.PER = 10416 / 2;
-
-    // led brightness percentage
-    TCA0.SINGLE.CMP1 = 1145 / 2; // 11%
 
     TCA0.SINGLE.CTRLA |= 0x01;
 }
