@@ -1,23 +1,31 @@
-#include <stdint.h>
+#include <avr/io.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <avr/interrupt.h>
 #include <display.h>
 
-const uint8_t digit_gen[16] =        //Digits generator    
+volatile uint8_t left_byte = DISP_OFF | DISP_LHS;
+volatile uint8_t right_byte = DISP_OFF;
+
+
+
+ISR(SPI0_INT_vect)
 {
-            ~(a+b+c+d+e+f),         //0
-            ~(b+c),                 //1
-            ~(a+b+d+e+g),           //2
-            ~(a+b+c+d+g),           //3
-            ~(f+g+b+c),             //4
-            ~(a+f+g+c+d),           //5
-            ~(a+f+e+d+c+g),         //6
-            ~(a+b+c),               //7
-            ~(a+b+c+d+e+f+g),       //8
-            ~(d+c+b+a+f+g),         //9
-            ~(a+b+c+e+f+g),         //A
-            ~(c+d+e+f+g),           //B
-            ~(a+d+e+f),             //C
-            ~(b+c+d+e+g),           //D
-            ~(a+d+e+f+g),           //E
-            ~(a+e+f+g)              //F
-};
+
+    PORTA.OUTCLR = PIN1_bm; 
+
+    PORTA.OUTSET = PIN1_bm; // latch high
+
+    SPI0.INTFLAGS = SPI_IF_bm; // cli
+
+}
+
+
+void update_display(const uint8_t left, const uint8_t right)
+
+{
+
+    left_byte = (left & 0x7F) | DISP_LHS;
+    right_byte = right & 0x7F;
+
+}

@@ -109,6 +109,7 @@ int main(void)
   timer_init();
   adc_init(); // potentiometer
   pwm_init(); // pulse width modulation
+  spi_init(); // serial peripheral interface
   sei();
 
   

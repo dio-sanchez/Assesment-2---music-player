@@ -86,3 +86,23 @@ void pwm_init(void)
 
     TCA0.SINGLE.CTRLA |= 0x01;
 }
+
+void spi_init(void) {
+
+    PORTMUX.SPIROUTEA = PORTMUX_SPI0_ALT1_gc; // SPI pins on PC0-3
+
+    PORTC.DIRSET = (PIN0_bm | PIN2_bm); // Set SCK (PC0) and MOSI (PC2) as outputs
+
+    PORTA.OUTSET = PIN1_bm; // DISP_LATCH initial high
+
+    PORTA.DIRSET = PIN1_bm; // Set DISP_LATCH pin as output
+
+    SPI0.CTRLA = SPI_MASTER_bm; // Master, /4 prescaler, MSB first
+
+    SPI0.CTRLB = SPI_SSD_bm; // Mode 0, client select disable, unbuffered
+
+    SPI0.INTCTRL = SPI_IE_bm; // Enable SPI interrupt
+
+    SPI0.CTRLA |= SPI_ENABLE_bm; // Enable SPI
+
+}
