@@ -37,8 +37,6 @@ ISR(TCB1_INT_vect)
         }
     }
 
-
-    static uint8_t digit_toggle = 0;
     
     // Pull DISP_LATCH low before sending new data
     PORTA.OUTCLR = PIN1_bm; 

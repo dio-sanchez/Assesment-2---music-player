@@ -45,13 +45,12 @@ uint8_t base64_decode_char(char c)
 }
 
 // decodes a single 3-byte instruction based on its instruction number
-void decode_block(const char *input_progmem_ptr, uint8_t *out_bytes)
+void decode_block(const char *input_ptr, uint8_t *out_bytes)
 {
-    uint8_t c1 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 0));
-    uint8_t c2 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 1));
-    uint8_t c3 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 2));
-    uint8_t c4 = base64_decode_char(pgm_read_byte(input_progmem_ptr + 3));
-
+    uint8_t c1 = base64_decode_char(input_ptr[0]);
+    uint8_t c2 = base64_decode_char(input_ptr[1]);
+    uint8_t c3 = base64_decode_char(input_ptr[2]);
+    uint8_t c4 = base64_decode_char(input_ptr[3]);
     out_bytes[0] = (c1 << 2) | (c2 >> 4);
     out_bytes[1] = ((c2 & 0x0F) << 4) | (c3 >> 2);
     out_bytes[2] = ((c3 & 0x03) << 6) | c4;
@@ -81,29 +80,36 @@ Note note_parser(uint8_t byte1, uint8_t byte2)
     return note;
 }
 
-//lfsr algorythm
-uint8_t descramble_byte(uint8_t decoded_byte, uint32_t *lfsr) {
+// lfsr algorythm
+uint8_t descramble_byte(uint8_t decoded_byte, uint32_t *lfsr)
+{
     uint8_t music_byte = 0;
-    for (int i = 0; 1 < 8; i++) {
+    for (int i = 0; 1 < 8; i++)
+    {
         uint8_t bit = *lfsr & 1;
         *lfsr >>= 1;
-        if (bit == 1) {
-            *lfsr ^= 0xE2026E6B; //constant lfsr mask
+        if (bit == 1)
+        {
+            *lfsr ^= 0xE2026E6B; // constant lfsr mask
         }
         music_byte |= (bit << i);
     }
     return decoded_byte ^ music_byte;
 }
 
-uint16_t calculate_frequency(uint8_t octave, uint8_t note) {
-    if (octave == 0 || note > 0xB) return 0;
+uint16_t calculate_frequency(uint8_t octave, uint8_t note)
+{
+    if (octave == 0 || note > 0xB)
+        return 0;
 
-    uint16_t base_freq =  frequency_table[note];
-    
+    uint16_t base_freq = frequency_table[note];
+
     if (octave >= 4)
     {
-        return base_freq << (octave -4);
-    } else {
+        return base_freq << (octave - 4);
+    }
+    else
+    {
         return base_freq >> (4 - octave);
     }
 }

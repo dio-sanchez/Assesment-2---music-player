@@ -35,8 +35,8 @@ uint32_t lfsr_state = 0x12412821;
 
 // marks the segment table for the display as an extern
 extern uint8_t segment_map[];
-uint8_t left_digit;
-uint8_t right_digit;
+uint8_t left_digit = 0x00;
+uint8_t right_digit = 0x00;
 
 uint8_t digit2, digit1, digit0;
 
@@ -75,7 +75,6 @@ void state_machine(void)
           if (selected_track > 1)
           {
             selected_track -= 1;
-            printf("track selected %d/n", selected_track);
           }
         }
         ///////////button 3//////////
@@ -84,7 +83,6 @@ void state_machine(void)
           if (selected_track < 4)
           {
             selected_track += 1;
-            printf("track selected %d/n", selected_track);
           }
         }
       }
@@ -98,7 +96,6 @@ void state_machine(void)
           lfsr_state = 0x12412821;
         }
         fetch_next_note = 1;
-        printf("PLAYING track %d\n", current_track_index);
       }
       break;
 
@@ -109,7 +106,6 @@ void state_machine(void)
       {
         state = PAUSED;
         buzzer_stop(); // Stop the buzzer when pause
-        printf("PAUSED\n");
       }
       else if (fetch_next_note) // if it isnt paused just keep playing
       {
@@ -117,10 +113,7 @@ void state_machine(void)
 
         // 1. Fetch 4 Encoded Characters
         char b64_chars[4];
-        for (int i = 0; i < 4; i++)
-        {
-          b64_chars[i] = pgm_read_byte(&encoded_data[current_track_index + i]);
-        }
+        memcpy_P(b64_chars, &encoded_data[current_track_index], 4);
 
         // 2. Decode into 3 bytes
         uint8_t decoded_bytes[3];
@@ -169,7 +162,6 @@ void state_machine(void)
       if (pb_falling_edge & PIN7_bm)
       {
         state = TRACK_SELECT;
-        printf("TRACK SELECT\n");
       }
       break;
 
@@ -179,12 +171,10 @@ void state_machine(void)
       if (pb_falling_edge & PIN6_bm)
       {
         state = PLAYING;
-        printf("PLAYING\n");
       }
       else if (pb_falling_edge & PIN7_bm)
       {
         state = TRACK_SELECT;
-        printf("TRACK SELECT\n");
       }
       if (PORTA.IN & PIN4_bm) // while the button is pressed activate the potentiometer
       {
@@ -210,7 +200,6 @@ int main(void)
   timer_init();
   adc_init(); // potentiometer
   pwm_init(); // pulse width modulation
-  spi_init(); // serial peripheral interface
   sei();
 
   state_machine();
