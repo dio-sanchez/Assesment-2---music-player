@@ -23,7 +23,7 @@ typedef enum
 // curent state of the machine to start in select track
 machine_state state = TRACK_SELECT;
 
-// marks the initial state of the buttons, not pressed
+// marks the initial state of the buttons, not pressed so hi
 uint8_t pb_state = 0xFF;
 uint8_t pb_falling_edge = 0x00;
 
@@ -32,12 +32,15 @@ extern volatile uint16_t note_duration_5ms;
 extern volatile uint8_t fetch_next_note;
 
 // curent terack number, starts from 0
-uint16_t current_track_index = 0;
+uint16_t current_track_index = 1;
 uint8_t selected_track = 1; // 1 to 4
 uint8_t current_multiplier = 1;
 
 // my student number as the lfsr key
 uint32_t lfsr_state = 0x12412821;
+
+// marks the segment table for the display as an extern
+extern uint8_t segment_map[16];
 
 void state_machine(void)
 {
@@ -45,15 +48,50 @@ void state_machine(void)
   {
     // read and save the state of the buttons
     uint8_t pb_state_old = pb_state;
-
     pb_state = pb_debounced_state;
-
     pb_falling_edge = pb_state_old & ~pb_state;
+    uint8_t pb_rising_edge = ~pb_state_old & pb_state;
 
     switch (state)
     {
       ///////////////////////// case track select //////////////////////////////////
     case TRACK_SELECT:
+      ////////button 1 pressed/////////
+      if (!(pb_state & PIN4_bm)) // while the button is held down show the current calue of the pot
+      {
+        uint8_t preview_multi = (ADC0.RESULT >> 4) + 1;
+        uint8_t first_digit = (preview_multi >> 4) & 0x0F;
+        uint8_t second_digit = preview_multi & 0x0F;
+        update_display(segment_map[first_digit], segment_map[second_digit]);
+      }
+      else
+      {
+        if (pb_rising_edge & PIN4_bm) // when the button is released, apply the current position of the pot
+        {
+          current_multiplier = (ADC0.RESULT >> 4) + 1;
+        }
+
+
+        update_display(segment_map[0], segment_map[selected_track]);
+
+        /////////button 2 /////////////
+        if (pb_falling_edge & PIN5_bm)
+        {
+          if (selected_track > 1)
+          {
+            selected_track -= 1;
+          }
+        }
+        ///////////button 3//////////
+        if (pb_falling_edge & PIN6_bm)
+        {
+          if (selected_track < 4)
+          {
+            selected_track += 1;
+          }
+        }
+      }
+      //////////button 4////////////
       if (pb_falling_edge & PIN7_bm)
       {
         state = PLAYING;
@@ -65,19 +103,6 @@ void state_machine(void)
         fetch_next_note = 1;
         printf("PLAYING track %d\n", current_track_index);
       }
-      if (!(PORTA.IN & PIN4_bm)) // while the button is pressed activate the potentiometer ****** need to figure out how to make it work with the debounced
-      {
-        /* code */
-      }
-      if (pb_falling_edge & PIN5_bm)
-      {
-        /* code */
-      }
-      if (pb_falling_edge & PIN6_bm)
-      {
-        /* code */
-      }
-
       break;
 
       //////////////////////// case playing /////////////////////////////////////
@@ -89,7 +114,7 @@ void state_machine(void)
         buzzer_stop(); // Stop the buzzer when pause
         printf("PAUSED\n");
       }
-      else if (fetch_next_note) //if it isnt paused just keep playing
+      else if (fetch_next_note) // if it isnt paused just keep playing
       {
         fetch_next_note = 0;
 
@@ -131,7 +156,7 @@ void state_machine(void)
         uint8_t display = decoded_bytes[2];
 
         // 6. Apply Pitch, Duration, and Display
-        uint16_t freq = calculate_freq(octave, note);
+        uint16_t freq = calculate_frequency(octave, note);
         buzzer_play_freq(freq);
         note_duration_5ms = duration * current_multiplier;
 
@@ -151,8 +176,7 @@ void state_machine(void)
       }
       break;
 
-//////////////////////////// case paused ///////////////////////////////
-
+      //////////////////////////// case paused ///////////////////////////////
 
     case PAUSED:
       if (pb_falling_edge & PIN6_bm)

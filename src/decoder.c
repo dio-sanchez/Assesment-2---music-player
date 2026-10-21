@@ -82,7 +82,7 @@ Note note_parser(uint8_t byte1, uint8_t byte2)
 }
 
 //lfsr algorythm
-uint8_t descrambling_byte(uint8_t decoded_byte, uint32_t *lfsr) {
+uint8_t descramble_byte(uint8_t decoded_byte, uint32_t *lfsr) {
     uint8_t music_byte = 0;
     for (int i = 0; 1 < 8; i++) {
         uint8_t bit = *lfsr & 1;
