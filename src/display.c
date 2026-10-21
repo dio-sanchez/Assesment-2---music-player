@@ -4,66 +4,68 @@
 #include <avr/interrupt.h>
 #include <display.h>
 
-/*     ABCDEFG
-    0: 0000001
-    1: 1001111
-    2: 0010010
-    3: 0000110
-    4: 1001100
-    5: 0100100
-    6: 0100000
-    7: 0001111
-    8: 0000000
-    9: 0000100
-    A: 0001000
-    B: 1100000
-    C: 0110001
-    D: 1000010
-    E: 0110000
-    F: 0111000
-    */
-// 7-segment display mapping 
+// 7-segment display mapping
 // Bit order: E D C G B A F (Active-Low), this table was made using ai for rearranging all the values more efficiently
-const uint8_t segment_map[16] = {
-    0b0001000,  // 0: E=0, D=0, C=0, G=1, B=0, A=0, F=0
-    0b1101011,  // 1: E=1, D=1, C=0, G=1, B=0, A=1, F=1
-    0b0010001,  // 2: E=0, D=0, C=1, G=0, B=0, A=0, F=1
-    0b1000001,  // 3: E=1, D=0, C=0, G=0, B=0, A=0, F=1
-    0b1100010,  // 4: E=1, D=1, C=0, G=0, B=0, A=1, F=0
-    0b1000100,  // 5: E=1, D=0, C=0, G=0, B=1, A=0, F=0
-    0b0000100,  // 6: E=0, D=0, C=0, G=0, B=1, A=0, F=0
-    0b1101001,  // 7: E=1, D=1, C=0, G=1, B=0, A=0, F=1
-    0b0000000,  // 8: E=0, D=0, C=0, G=0, B=0, A=0, F=0
-    0b1000000,  // 9: E=1, D=0, C=0, G=0, B=0, A=0, F=0
-    0b0100000,  // A: E=0, D=1, C=0, G=0, B=0, A=0, F=0
-    0b0000110,  // B: E=0, D=0, C=0, G=0, B=1, A=1, F=0
-    0b0011100,  // C: E=0, D=0, C=1, G=1, B=1, A=0, F=0
-    0b0000011,  // D: E=0, D=0, C=0, G=0, B=0, A=1, F=1
-    0b0010100,  // E: E=0, D=0, C=1, G=0, B=1, A=0, F=0
-    0b0110100   // F: E=0, D=1, C=1, G=0, B=1, A=0, F=0
+const uint8_t segment_map[] = { 
+    SEGS_ZERO, SEGS_ONE, SEGS_TWO, SEGS_THREE, SEGS_FOUR, SEGS_FIVE, SEGS_SIX, SEGS_SEVEN, 
+    SEGS_EIGHT, SEGS_NINE, SEGS_A, SEGS_B, SEGS_C, SEGS_D, SEGS_E, SEGS_F 
 };
 volatile uint8_t left_byte = DISP_OFF | DISP_LHS;
 volatile uint8_t right_byte = DISP_OFF;
 
 
+void find_dec_digits(uint8_t num, uint8_t *hundreds, uint8_t *tens, uint8_t *units) {
+    *hundreds = 0;    
+    *tens = 0;
+    *units = num;
+    while (*units > 99) {
+        (*hundreds)++;
+        (*units) -= 100;
+    }
+ 
+    while (*units > 9) {
+        (*tens)++;
+        (*units) -= 10;
+    }
+
+    left_byte = segment_map[*tens];
+    right_byte = segment_map[*units];
+}//find_dec_digits
+
+void find_hex_digits(uint8_t num, uint8_t* digit1, uint8_t* digit0) {
+    *digit1 = (num >> 4) & 0x0F;
+    *digit0 = (num & 0x0F);
+
+    left_byte = segment_map[*digit1];
+    right_byte = segment_map[*digit0];
+}//find_dec_digits
+
+void set_display_segments(uint8_t segs_l, uint8_t segs_r) {
+    left_byte = segs_l;
+    right_byte = segs_r;
+}//set_display_segments
+
+
+void swap_display_digit(void) {
+    static int digit = 0;
+    if (digit) {
+        display_write(left_byte | (0x01 << 7));
+    } else {
+        display_write(right_byte);
+    }
+    digit = !digit;
+}//swap_digit
+
+void display_write(uint8_t data) {
+    SPI0.DATA = data;              // Note DATA register used for both Tx and Rx
+}//display_write
+
 
 ISR(SPI0_INT_vect)
 {
 
-    PORTA.OUTCLR = PIN1_bm; 
-
-    PORTA.OUTSET = PIN1_bm; // latch high
-
+    PORTA.OUTCLR = PIN1_bm;
+    PORTA.OUTSET = PIN1_bm;    // latch high
+    
     SPI0.INTFLAGS = SPI_IF_bm; // cli
-
-}
-
-
-void update_display(const uint8_t left, const uint8_t right)
-
-{
-
-    left_byte = (left & 0x7F) | DISP_LHS;
-    right_byte = right & 0x7F;
-
 }

@@ -12,13 +12,7 @@
 #include "display.h"
 #include "timer.h"
 #include "decoder.h"
-
-typedef enum
-{
-  TRACK_SELECT,
-  PLAYING,
-  PAUSED
-} machine_state;
+#include "globals.h"
 
 // curent state of the machine to start in select track
 machine_state state = TRACK_SELECT;
@@ -40,7 +34,11 @@ uint8_t current_multiplier = 1;
 uint32_t lfsr_state = 0x12412821;
 
 // marks the segment table for the display as an extern
-extern uint8_t segment_map[16];
+extern uint8_t segment_map[];
+uint8_t left_digit;
+uint8_t right_digit;
+
+uint8_t digit2, digit1, digit0;
 
 void state_machine(void)
 {
@@ -60,9 +58,7 @@ void state_machine(void)
       if (!(pb_state & PIN4_bm)) // while the button is held down show the current calue of the pot
       {
         uint8_t preview_multi = (ADC0.RESULT >> 4) + 1;
-        uint8_t first_digit = (preview_multi >> 4) & 0x0F;
-        uint8_t second_digit = preview_multi & 0x0F;
-        update_display(segment_map[first_digit], segment_map[second_digit]);
+        find_hex_digits(preview_multi, &digit1, &digit0);
       }
       else
       {
@@ -71,8 +67,7 @@ void state_machine(void)
           current_multiplier = (ADC0.RESULT >> 4) + 1;
         }
 
-
-        update_display(segment_map[0], segment_map[selected_track]);
+        find_hex_digits(selected_track, &digit1, &digit0);
 
         /////////button 2 /////////////
         if (pb_falling_edge & PIN5_bm)
@@ -80,6 +75,7 @@ void state_machine(void)
           if (selected_track > 1)
           {
             selected_track -= 1;
+            printf("track selected %d/n", selected_track);
           }
         }
         ///////////button 3//////////
@@ -88,6 +84,7 @@ void state_machine(void)
           if (selected_track < 4)
           {
             selected_track += 1;
+            printf("track selected %d/n", selected_track);
           }
         }
       }
