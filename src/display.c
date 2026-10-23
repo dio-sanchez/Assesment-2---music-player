@@ -4,6 +4,10 @@
 #include <avr/interrupt.h>
 #include <display.h>
 
+volatile uint8_t spi_busy = 0;
+
+
+
 // 7-segment display mapping
 // Bit order: E D C G B A F (Active-Low), this table was made using ai for rearranging all the values more efficiently
 const uint8_t segment_map[] = { 
@@ -40,15 +44,15 @@ void swap_display_digit(void) {
 }//swap_digit
 
 void display_write(uint8_t data) {
-    SPI0.DATA = data;              // Note DATA register used for both Tx and Rx
+    PORTA.OUTCLR = PIN1_bm;   // latch low
+    spi_busy = 1;
+    SPI0.DATA = data;
 }//display_write
 
 
 ISR(SPI0_INT_vect)
 {
-
-    PORTA.OUTCLR = PIN1_bm;
-    PORTA.OUTSET = PIN1_bm;    // latch high
-    
-    SPI0.INTFLAGS = SPI_IF_bm; // cli
+    PORTA.OUTSET = PIN1_bm;   // latch high
+    SPI0.INTFLAGS = SPI_IF_bm;
+    spi_busy = 0;
 }

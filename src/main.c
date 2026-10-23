@@ -68,6 +68,13 @@ static void stop_playback(void)
   state = TRACK_SELECT;
 }
 
+static uint8_t apply_instruction(void)
+{
+    uint8_t ins[3];
+    fetch_instruction(current_track_index, selected_track == 4, &lfsr_state, ins);
+    current_track_index += 4;
+    return execute_instruction(ins, current_multiplier, &current_full_duration);
+}
 
 void process_serial_command(char id, char *payload_data)
 {

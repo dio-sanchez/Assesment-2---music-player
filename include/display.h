@@ -32,4 +32,6 @@ void find_hex_digits(uint8_t num, uint8_t* digit1, uint8_t* digit0);
 void set_display_segments(uint8_t segs_l, uint8_t segs_r);
 void swap_display_digit(void);
 void display_write(uint8_t data);
+
+extern volatile uint8_t spi_busy;  
 #endif
