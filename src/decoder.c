@@ -38,7 +38,7 @@ uint8_t base64_decode_char(char c)
         return 62;
     }
     else if (c == '/')
-    {
+ {
         return 63;
     }
     return 0;
@@ -84,7 +84,7 @@ Note note_parser(uint8_t byte1, uint8_t byte2)
 uint8_t descramble_byte(uint8_t decoded_byte, uint32_t *lfsr)
 {
     uint8_t music_byte = 0;
-    for (int i = 0; 1 < 8; i++)
+    for (int i = 0; i < 8; i++)
     {
         uint8_t bit = *lfsr & 1;
         *lfsr >>= 1;

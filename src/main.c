@@ -29,6 +29,7 @@ extern volatile uint8_t fetch_next_note;
 uint16_t current_track_index = 1;
 uint8_t selected_track = 1; // 1 to 4
 uint8_t current_multiplier = 1;
+uint16_t current_full_duration = 0;
 
 // my student number as the lfsr key
 uint32_t lfsr_state = 0x12412821;
@@ -105,21 +106,20 @@ void state_machine(void)
       if (pb_falling_edge & PIN6_bm)
       {
         state = PAUSED;
-        buzzer_stop(); // Stop the buzzer when pause
       }
       else if (fetch_next_note) // if it isnt paused just keep playing
       {
         fetch_next_note = 0;
 
-        // 1. Fetch 4 Encoded Characters
+        // fetch 4 Encoded Characters
         char b64_chars[4];
         memcpy_P(b64_chars, &encoded_data[current_track_index], 4);
 
-        // 2. Decode into 3 bytes
+        // decode into 3 bytes
         uint8_t decoded_bytes[3];
         decode_block(b64_chars, decoded_bytes);
 
-        // 3. Descramble if Track 4 is playing
+        // descramble if Track 4 is playing
         if (selected_track == 4)
         {
           decoded_bytes[0] = descramble_byte(decoded_bytes[0], &lfsr_state);
@@ -127,30 +127,32 @@ void state_machine(void)
           decoded_bytes[2] = descramble_byte(decoded_bytes[2], &lfsr_state);
         }
 
-        // 4. Check for Terminating Instruction (0x00 0x00 0x00)
+        // check for terminating instruction (0x00 0x00 0x00)
         if (decoded_bytes[0] == 0 && decoded_bytes[1] == 0 && decoded_bytes[2] == 0)
         {
           state = TRACK_SELECT;
           buzzer_stop();
 
-          // Advance to next track, unless currently on Track 4
+          // advance to next track, unless currently on track 4
           if (selected_track < 4)
             selected_track++;
           continue;
         }
 
-        // 5. Parse the Instruction
+        // parse
         uint8_t duration = decoded_bytes[0];
         uint8_t octave = decoded_bytes[1] >> 4;
         uint8_t note = decoded_bytes[1] & 0x0F;
         uint8_t display = decoded_bytes[2];
 
-        // 6. Apply Pitch, Duration, and Display
+        // apply pitch duration and siplay
+
         uint16_t freq = calculate_frequency(octave, note);
         buzzer_play_freq(freq);
         note_duration_5ms = duration * current_multiplier;
+        current_full_duration = note_duration_5ms;
 
-        // Write display byte directly to shift register without modification
+        // write display byte directly to shift register without modification
         PORTA.OUTCLR = PIN1_bm; // Latch low
         SPI0.DATA = display;    // Send byte
         // Your SPI ISR will set Latch high once transmission completes
@@ -164,26 +166,84 @@ void state_machine(void)
         state = TRACK_SELECT;
       }
       break;
-
       //////////////////////////// case paused ///////////////////////////////
 
     case PAUSED:
+      if ((selected_track == 4) && !(pb_state & PIN4_bm)) // while the button is held down show the current calue of the pot
+      {
+        uint8_t preview_seek = ADC0.RESULT;
+        find_hex_digits(preview_seek, &digit1, &digit0);
+      }
+      else if ((selected_track == 4) && (pb_rising_edge & PIN4_bm)) // when the button is released, apply the current position of the pot
+      {
+        uint16_t seek_value = ADC0.RESULT;
+        uint16_t instruction_offset = 8 * seek_value;
+
+        current_track_index = (track_start[3] + instruction_offset) * 4;
+        lfsr_state = 0x12412821;
+
+        for (uint16_t i = 0; i < (instruction_offset * 3); i++)
+        {
+          descramble_byte(0, &lfsr_state);
+        }
+      }
+
+      if (pb_falling_edge & PIN5_bm)
+      {
+        // fetch 4 Encoded Characters
+        char b64_chars[4];
+        memcpy_P(b64_chars, &encoded_data[current_track_index], 4);
+
+        // decode into 3 bytes
+        uint8_t decoded_bytes[3];
+        decode_block(b64_chars, decoded_bytes);
+
+        // descramble if Track 4 is playing
+        if (selected_track == 4)
+        {
+          decoded_bytes[0] = descramble_byte(decoded_bytes[0], &lfsr_state);
+          decoded_bytes[1] = descramble_byte(decoded_bytes[1], &lfsr_state);
+          decoded_bytes[2] = descramble_byte(decoded_bytes[2], &lfsr_state);
+        }
+
+        // check for terminating instruction (0x00 0x00 0x00)
+        if (decoded_bytes[0] == 0 && decoded_bytes[1] == 0 && decoded_bytes[2] == 0)
+        {
+          state = TRACK_SELECT;
+          buzzer_stop();
+
+          // advance to next track, unless currently on track 4
+          if (selected_track < 4)
+            selected_track++;
+        }
+        else
+        {
+
+          // parse
+          uint8_t octave = decoded_bytes[1] >> 4;
+          uint8_t note = decoded_bytes[1] & 0x0F;
+          uint8_t display = decoded_bytes[2];
+
+          // apply pitch duration and siplay
+          buzzer_play_freq(calculate_frequency(octave, note));
+
+          PORTA.OUTCLR = PIN1_bm;
+          SPI0.DATA = display;
+
+          // advance index for the next operation1111
+          current_track_index += 4;
+        }
+      }
       if (pb_falling_edge & PIN6_bm)
       {
         state = PLAYING;
+        note_duration_5ms = current_full_duration;
       }
       else if (pb_falling_edge & PIN7_bm)
       {
         state = TRACK_SELECT;
       }
-      if (PORTA.IN & PIN4_bm) // while the button is pressed activate the potentiometer
-      {
-        /* code */
-      }
-      if (pb_falling_edge & PIN5_bm)
-      {
-        /* code */
-      }
+
       break;
 
     default:

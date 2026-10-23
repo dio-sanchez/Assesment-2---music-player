@@ -9,5 +9,4 @@ typedef enum
 } machine_state;
 
 extern machine_state state;
-
 #endif

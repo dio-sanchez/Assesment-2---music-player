@@ -13,24 +13,7 @@ const uint8_t segment_map[] = {
 volatile uint8_t left_byte = DISP_OFF | DISP_LHS;
 volatile uint8_t right_byte = DISP_OFF;
 
-
-void find_dec_digits(uint8_t num, uint8_t *hundreds, uint8_t *tens, uint8_t *units) {
-    *hundreds = 0;    
-    *tens = 0;
-    *units = num;
-    while (*units > 99) {
-        (*hundreds)++;
-        (*units) -= 100;
-    }
- 
-    while (*units > 9) {
-        (*tens)++;
-        (*units) -= 10;
-    }
-
-    left_byte = segment_map[*tens];
-    right_byte = segment_map[*units];
-}//find_dec_digits
+//functions below taken from tutorial 10 demo
 
 void find_hex_digits(uint8_t num, uint8_t* digit1, uint8_t* digit0) {
     *digit1 = (num >> 4) & 0x0F;

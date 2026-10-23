@@ -6,7 +6,7 @@
 
 ///////////////// initialisation files pulled from tutorials and demos, most if not all comments where left as they were
 
-// initialises the programs with all the buttons set to pull up resistors and falling edge interrupts
+// initialises the programs with all the buttons set to pull up resistors, erased the falling edge interrupts cause it was getting stuck
 void buttons_init(void)
 {
     PORTA.PIN4CTRL |= PORT_PULLUPEN_bm;
@@ -45,6 +45,7 @@ void timer_init(void)
     TCB1.CTRLA = TCB_ENABLE_bm;
     sei(); // enable them back        // Enable TCB1
 }
+
 
 void uart_init(void)
 {
