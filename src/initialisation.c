@@ -71,14 +71,16 @@ void pwm_init(void)
     // SETS the disp as an output
     PORTB.OUTCLR = PIN1_bm;
     PORTB.DIRSET = PIN1_bm;
+
     PORTB.OUTSET = PIN0_bm;
     PORTB.DIRSET = PIN0_bm;
 
-    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc | TCA_SINGLE_CMP1EN_bm;
+    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc;
     TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_SINGLESLOPE_gc | TCA_SINGLE_CMP1EN_bm;
-    TCA0.SINGLE.PER = 1000; // led brightness percentage
-    TCA0.SINGLE.CMP0 = 0;
-    TCA0.SINGLE.CMP1 = 0xFFFF;
+
+    TCA0.SINGLE.PER = TCA_SINGLE_PERBV_bm;
+    // led brightness percentage
+    TCA0.SINGLE.CMP1 = TCA_SINGLE_CMP1_bm;
 
     TCA0.SINGLE.CTRLA |= 0x01;
 }
