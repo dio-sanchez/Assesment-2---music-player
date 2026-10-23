@@ -3,6 +3,12 @@
 #include <avr/interrupt.h>
 #include "buzzer.h"
 
+void buzzer_stop(void)
+{
+    TCA0.SINGLE.CTRLB &= ~TCA_SINGLE_CMP0EN_bm;
+    TCA0.SINGLE.CMP0 = 0;
+    PORTB.OUTCLR = PIN0_bm;
+}
 void buzzer_play_freq(uint16_t freq)
 {
     if (freq == 0)
@@ -18,11 +24,4 @@ void buzzer_play_freq(uint16_t freq)
     TCA0.SINGLE.CMP0 = period / 2;             // 50% duty cycle for square wave
     TCA0.SINGLE.CMP1 = period;                 // supposed to maintain the brightess as a maximum
     TCA0.SINGLE.CTRLB |= TCA_SINGLE_CMP0EN_bm; // Enable output
-}
-
-void buzzer_stop(void)
-{
-    TCA0.SINGLE.CTRLB &= ~TCA_SINGLE_CMP0EN_bm;
-    TCA0.SINGLE.CMP0 = 0;
-    PORTB.OUTCLR = PIN0_bm;
 }

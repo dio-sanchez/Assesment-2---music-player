@@ -26,6 +26,7 @@ uint8_t pb_falling_edge = 0x00;
 extern volatile uint16_t note_duration_5ms;
 extern volatile uint8_t fetch_next_note;
 
+
 // curent terack number, starts from 0
 uint16_t current_track_index = 1;
 uint8_t selected_track = 1; // 1 to 4
@@ -49,22 +50,36 @@ typedef enum
   PARSER_IDENTIFIER,
   PARSER_PAYLOAD
 } parser_state_t;
+
 parser_state_t serial_state = PARSER_IDLE;
 char command_id = 0;
 char payload[32];
 uint8_t payload_index = 0;
 
+// stops theb buzzer and playback
+static void stop_playback(void)
+{
+  buzzer_stop();
+  cli();
+  note_duration_5ms = 0;
+  fetch_next_note = 0;
+  sei();
+  current_full_duration = 0;
+  state = TRACK_SELECT;
+}
+
+
 void process_serial_command(char id, char *payload_data)
 {
   switch (id)
   {
-  case 't':
+    case 't':
     // TODO: Decode and descramble test_message
     // printf("? %s\n", decoded_text);
     printf("#ACK\n");
     break;
-
-  case '2':
+    
+    case '2':
     if (state == PLAYING)
     {
       printf("#NACK\n"); // S2 is inactive during playback[cite: 18]
@@ -169,7 +184,7 @@ void state_machine(void)
     case PLAYING:
       if (pb_falling_edge & PIN6_bm)
       {
-        state = TRACK_SELECT;
+        stop_playback();
       }
       else if (pb_falling_edge & PIN7_bm)
       {
@@ -312,7 +327,8 @@ void state_machine(void)
           buzzer_stop();
 
           // advance to next track, unless currently on track 4
-          if (selected_track < 4) selected_track++;
+          if (selected_track < 4)
+            selected_track++;
           continue;
         }
         else
@@ -338,14 +354,15 @@ void state_machine(void)
       }
       if (pb_falling_edge & PIN6_bm)
       {
-        state = TRACK_SELECT;
+        stop_playback();
       }
       else if (pb_falling_edge & PIN7_bm)
       {
         state = PLAYING;
         note_duration_5ms = current_full_duration;
 
-        if (note_duration_5ms == 0) fetch_next_note = 1;
+        if (note_duration_5ms == 0)
+          fetch_next_note = 1;
       }
 
       break;
