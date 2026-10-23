@@ -10,6 +10,7 @@
 #include "initialisation.h"
 #include "buzzer.h"
 #include "display.h"
+#include "uart.h"
 #include "timer.h"
 #include "decoder.h"
 #include "globals.h"
@@ -40,6 +41,59 @@ uint8_t left_digit = 0x00;
 uint8_t right_digit = 0x00;
 
 uint8_t digit2, digit1, digit0;
+
+
+//parses states of uart
+typedef enum { PARSER_IDLE, PARSER_IDENTIFIER, PARSER_PAYLOAD } parser_state_t;
+parser_state_t serial_state = PARSER_IDLE;
+char command_id = 0;
+char payload[32];
+uint8_t payload_index = 0;
+
+
+void process_serial_command(char id, char* payload_data) {
+    switch (id) {
+        case 't':
+            // TODO: Decode and descramble test_message
+            // printf("? %s\n", decoded_text);
+            printf("#ACK\n");
+            break;
+            
+        case '2':
+            if (state == PLAYING) {
+                printf("#NACK\n"); // S2 is inactive during playback[cite: 18]
+            } else {
+                pb_falling_edge |= PIN5_bm; // Simulate S2 falling edge
+                printf("#ACK\n");
+            }
+            break;
+            
+        case '3':
+            pb_falling_edge |= PIN6_bm; // Simulate S3 falling edge
+            printf("#ACK\n");
+            break;
+            
+        case '4':
+            pb_falling_edge |= PIN7_bm; // Simulate S4 falling edge
+            printf("#ACK\n");
+            break;
+
+        case 'm':
+            if (state != TRACK_SELECT) {
+                printf("#NACK\n"); // Only valid in TRACK_SELECT[cite: 18]
+            } else {
+                // TODO: Add Base64 validation and instruction playback logic here[cite: 17, 18]
+                printf("#ACK\n");
+            }
+            break;
+            
+        default:
+            printf("#NACK\n"); // Unknown identifier[cite: 18]
+            break;
+    }
+}
+
+
 
 void state_machine(void)
 {
@@ -249,6 +303,37 @@ void state_machine(void)
     default:
       break;
     }
+    char c;
+        if (uart_take_char(&c)) {
+            switch (serial_state) {
+                case PARSER_IDLE:
+                    if (c == '\\') {
+                        serial_state = PARSER_IDENTIFIER;
+                    }
+                    break;
+
+                case PARSER_IDENTIFIER:
+                    command_id = c;
+                    if (command_id == 'm') {
+                        payload_index = 0;
+                        serial_state = PARSER_PAYLOAD;
+                    } else {
+                        process_serial_command(command_id, NULL);
+                        serial_state = PARSER_IDLE;
+                    }
+                    break;
+
+                case PARSER_PAYLOAD:
+                    if (command_id == 'm') {
+                        payload[payload_index++] = c;
+                        if (payload_index == 32) {
+                            process_serial_command(command_id, payload);
+                            serial_state = PARSER_IDLE;
+                        }
+                    }
+                    break;
+            }
+        }
   }
 }
 
@@ -260,6 +345,8 @@ int main(void)
   timer_init();
   adc_init(); // potentiometer
   pwm_init(); // pulse width modulation
+  uart_init();
+  stdio_init();
   sei();
 
   state_machine();

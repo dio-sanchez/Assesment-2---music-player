@@ -7,6 +7,7 @@ void display_init(void);
 void timer_init(void);
 void adc_init(void); //potentiometer
 void pwm_init(void);
+void uart_init(void);
 
 
 

@@ -51,7 +51,7 @@ void uart_init(void)
 {
     PORTB.DIRSET = PIN2_bm; // enable PB2 as an output
     USART0.BAUD = 1389;                           // 9600 BAUD @ 3.33 MHz
-//    USART0.CTRLA = USART_RXCIE_bm | USART_DREIE_bm;   // enable DRE / RX interrupts
+    USART0.CTRLA = USART_RXCIE_bm;   // enable DRE / RX interrupts
     USART0.CTRLB = USART_RXEN_bm | USART_TXEN_bm; // enable Tx/Rx
 } // uart_init
 
