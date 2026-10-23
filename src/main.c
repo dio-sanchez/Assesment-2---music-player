@@ -308,18 +308,11 @@ void state_machine(void)
         // check for terminating instruction (0x00 0x00 0x00)
         if (decoded_bytes[0] == 0 && decoded_bytes[1] == 0 && decoded_bytes[2] == 0)
         {
+          state = TRACK_SELECT;
           buzzer_stop();
 
           // advance to next track, unless currently on track 4
-          if (selected_track < 4)
-          {
-            selected_track++;
-            current_track_index = track_start[selected_track - 1] * 4;
-          }
-          else
-          {
-            state = TRACK_SELECT;
-          }
+          if (selected_track < 4) selected_track++;
           continue;
         }
         else
@@ -352,8 +345,7 @@ void state_machine(void)
         state = PLAYING;
         note_duration_5ms = current_full_duration;
 
-        if (note_duration_5ms == 0)
-          fetch_next_note = 1;
+        if (note_duration_5ms == 0) fetch_next_note = 1;
       }
 
       break;
