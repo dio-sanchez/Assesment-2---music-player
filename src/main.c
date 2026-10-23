@@ -157,7 +157,7 @@ void state_machine(void)
       //////////////////////// case playing /////////////////////////////////////
 
     case PLAYING:
-      if (pb_falling_edge & PIN6_bm)
+      if (pb_falling_edge & PIN7_bm)
       {
         state = PAUSED;
       }
@@ -215,7 +215,7 @@ void state_machine(void)
       }
       break;
 
-      if (pb_falling_edge & PIN7_bm)
+      if (pb_falling_edge & PIN6_bm)
       {
         state = TRACK_SELECT;
       }
@@ -288,12 +288,12 @@ void state_machine(void)
           current_track_index += 4;
         }
       }
-      if (pb_falling_edge & PIN6_bm)
+      if (pb_falling_edge & PIN7_bm)
       {
         state = PLAYING;
         note_duration_5ms = current_full_duration;
       }
-      else if (pb_falling_edge & PIN7_bm)
+      else if (pb_falling_edge & PIN6_bm)
       {
         state = TRACK_SELECT;
       }
