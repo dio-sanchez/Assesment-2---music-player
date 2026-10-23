@@ -7,6 +7,8 @@
 #include "data.h"
 #include "globals.h"
 #include "timer.h"
+#include "buzzer.h"
+
 #include "display.h"
 
 const uint16_t frequency_table[12] = {
@@ -121,53 +123,11 @@ extern volatile uint8_t spi_busy;   // from the display latch fix (declare in di
 
 // Drives buzzer + display for one decoded instruction.
 // Returns 1 if it was a terminating instruction (nothing is played), else 0.
-static uint8_t execute_instruction(const uint8_t ins[3])
-{
-    if (ins[0] == 0 && ins[1] == 0 && ins[2] == 0)
-        return 1;
 
-    uint8_t octave = ins[1] >> 4;
-    uint8_t note   = ins[1] & 0x0F;
-
-    buzzer_play_freq(calculate_frequency(octave, note));   // returns silence for octave 0 / note > 0xB
-    current_full_duration = (uint16_t)ins[0] * current_multiplier;
-
-    while (spi_busy);          // wait for any in-flight SPI transfer
-    display_write(ins[2]);     // byte written unmodified (bit 7 selects the digit)
-    return 0;
-}
 
 
 // Starts the countdown for the instruction just applied (PLAYING / resume).
-static void start_note_timer(void)
-{
-    cli();
-    note_duration_5ms = current_full_duration;
-    sei();
-    if (current_full_duration == 0)      // zero-length instruction: move on immediately
-        fetch_next_note = 1;
-}
 
-// Track 4 seek: jump to the instruction, advance the LFSR to match, apply it.
-static void seek_track4(uint8_t seek_value)
-{
-    uint16_t offset = 8 * (uint16_t)seek_value;
-
-    current_track_index = (track_start[3] + offset) * 4;
-    lfsr_state = 0x12412821;
-    for (uint16_t i = 0; i < offset * 3; i++)
-        descramble_byte(0, &lfsr_state);
-
-    apply_instruction();                 // stays paused; timer isn't started
-}
-
-// Common end-of-track handling (terminator reached).
-static void finish_track(void)
-{
-    stop_playback();                     // helper from fix 2
-    if (selected_track < 4)
-        selected_track++;
-}
 void fetch_instruction(uint16_t index, uint8_t track4, uint32_t *lfsr, uint8_t ins[3])
 {
     char b64[4];
