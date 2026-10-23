@@ -69,14 +69,14 @@ void adc_init(void)
 void pwm_init(void)
 {
     // SETS the disp as an output
-    PORTB.OUTSET = PIN1_bm;
+    PORTB.OUTCLR = PIN1_bm;
     PORTB.DIRSET = PIN1_bm;
 
     PORTB.OUTSET = PIN0_bm;
     PORTB.DIRSET = PIN0_bm;
 
     TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc;
-    TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_SINGLESLOPE_gc | TCA_SINGLE_CMP0EN_bm | TCA_SINGLE_CMP1EN_bm;
+    TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_SINGLESLOPE_gc | TCA_SINGLE_CMP1EN_bm;
 
     TCA0.SINGLE.PER = TCA_SINGLE_PERBV_bm;
     // led brightness percentage
