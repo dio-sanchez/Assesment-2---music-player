@@ -42,58 +42,67 @@ uint8_t right_digit = 0x00;
 
 uint8_t digit2, digit1, digit0;
 
-
-//parses states of uart
-typedef enum { PARSER_IDLE, PARSER_IDENTIFIER, PARSER_PAYLOAD } parser_state_t;
+// parses states of uart
+typedef enum
+{
+  PARSER_IDLE,
+  PARSER_IDENTIFIER,
+  PARSER_PAYLOAD
+} parser_state_t;
 parser_state_t serial_state = PARSER_IDLE;
 char command_id = 0;
 char payload[32];
 uint8_t payload_index = 0;
 
+void process_serial_command(char id, char *payload_data)
+{
+  switch (id)
+  {
+  case 't':
+    // TODO: Decode and descramble test_message
+    // printf("? %s\n", decoded_text);
+    printf("#ACK\n");
+    break;
 
-void process_serial_command(char id, char* payload_data) {
-    switch (id) {
-        case 't':
-            // TODO: Decode and descramble test_message
-            // printf("? %s\n", decoded_text);
-            printf("#ACK\n");
-            break;
-            
-        case '2':
-            if (state == PLAYING) {
-                printf("#NACK\n"); // S2 is inactive during playback[cite: 18]
-            } else {
-                pb_falling_edge |= PIN5_bm; // Simulate S2 falling edge
-                printf("#ACK\n");
-            }
-            break;
-            
-        case '3':
-            pb_falling_edge |= PIN6_bm; // Simulate S3 falling edge
-            printf("#ACK\n");
-            break;
-            
-        case '4':
-            pb_falling_edge |= PIN7_bm; // Simulate S4 falling edge
-            printf("#ACK\n");
-            break;
-
-        case 'm':
-            if (state != TRACK_SELECT) {
-                printf("#NACK\n"); // Only valid in TRACK_SELECT[cite: 18]
-            } else {
-                // TODO: Add Base64 validation and instruction playback logic here[cite: 17, 18]
-                printf("#ACK\n");
-            }
-            break;
-            
-        default:
-            printf("#NACK\n"); // Unknown identifier[cite: 18]
-            break;
+  case '2':
+    if (state == PLAYING)
+    {
+      printf("#NACK\n"); // S2 is inactive during playback[cite: 18]
     }
+    else
+    {
+      pb_falling_edge |= PIN5_bm; // Simulate S2 falling edge
+      printf("#ACK\n");
+    }
+    break;
+
+  case '3':
+    pb_falling_edge |= PIN6_bm; // Simulate S3 falling edge
+    printf("#ACK\n");
+    break;
+
+  case '4':
+    pb_falling_edge |= PIN7_bm; // Simulate S4 falling edge
+    printf("#ACK\n");
+    break;
+
+  case 'm':
+    if (state != TRACK_SELECT)
+    {
+      printf("#NACK\n"); // Only valid in TRACK_SELECT[cite: 18]
+    }
+    else
+    {
+      // TODO: Add Base64 validation and instruction playback logic here[cite: 17, 18]
+      printf("#ACK\n");
+    }
+    break;
+
+  default:
+    printf("#NACK\n"); // Unknown identifier[cite: 18]
+    break;
+  }
 }
-
-
 
 void state_machine(void)
 {
@@ -150,7 +159,8 @@ void state_machine(void)
         {
           lfsr_state = 0x12412821;
         }
-        fetch_next_note = 1;
+        if (note_duration_5ms == 0)
+          fetch_next_note = 1;
       }
       break;
 
@@ -240,6 +250,36 @@ void state_machine(void)
         {
           descramble_byte(0, &lfsr_state);
         }
+        // same steps as when s2 is pressed
+        //  fetch 4 Encoded Characters
+        char b64_chars[4];
+        memcpy_P(b64_chars, &encoded_data[current_track_index], 4);
+
+        // decode into 3 bytes
+        uint8_t decoded_bytes[3];
+        decode_block(b64_chars, decoded_bytes);
+
+        // descramble if Track 4 is playing
+        if (selected_track == 4)
+        {
+          decoded_bytes[0] = descramble_byte(decoded_bytes[0], &lfsr_state);
+          decoded_bytes[1] = descramble_byte(decoded_bytes[1], &lfsr_state);
+          decoded_bytes[2] = descramble_byte(decoded_bytes[2], &lfsr_state);
+        }
+
+        // parse
+        uint8_t octave = decoded_bytes[1] >> 4;
+        uint8_t note = decoded_bytes[1] & 0x0F;
+        uint8_t display = decoded_bytes[2];
+
+        // apply pitch duration and siplay
+        buzzer_play_freq(calculate_frequency(octave, note));
+
+        PORTA.OUTCLR = PIN1_bm;
+        SPI0.DATA = display;
+
+        // advance index for the next operation1111
+        current_track_index += 4;
       }
 
       if (pb_falling_edge & PIN5_bm)
@@ -304,36 +344,44 @@ void state_machine(void)
       break;
     }
     char c;
-        if (uart_take_char(&c)) {
-            switch (serial_state) {
-                case PARSER_IDLE:
-                    if (c == '\\') {
-                        serial_state = PARSER_IDENTIFIER;
-                    }
-                    break;
-
-                case PARSER_IDENTIFIER:
-                    command_id = c;
-                    if (command_id == 'm') {
-                        payload_index = 0;
-                        serial_state = PARSER_PAYLOAD;
-                    } else {
-                        process_serial_command(command_id, NULL);
-                        serial_state = PARSER_IDLE;
-                    }
-                    break;
-
-                case PARSER_PAYLOAD:
-                    if (command_id == 'm') {
-                        payload[payload_index++] = c;
-                        if (payload_index == 32) {
-                            process_serial_command(command_id, payload);
-                            serial_state = PARSER_IDLE;
-                        }
-                    }
-                    break;
-            }
+    if (uart_take_char(&c))
+    {
+      switch (serial_state)
+      {
+      case PARSER_IDLE:
+        if (c == '\\')
+        {
+          serial_state = PARSER_IDENTIFIER;
         }
+        break;
+
+      case PARSER_IDENTIFIER:
+        command_id = c;
+        if (command_id == 'm')
+        {
+          payload_index = 0;
+          serial_state = PARSER_PAYLOAD;
+        }
+        else
+        {
+          process_serial_command(command_id, NULL);
+          serial_state = PARSER_IDLE;
+        }
+        break;
+
+      case PARSER_PAYLOAD:
+        if (command_id == 'm')
+        {
+          payload[payload_index++] = c;
+          if (payload_index == 32)
+          {
+            process_serial_command(command_id, payload);
+            serial_state = PARSER_IDLE;
+          }
+        }
+        break;
+      }
+    }
   }
 }
 

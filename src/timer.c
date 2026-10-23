@@ -43,7 +43,7 @@ ISR(TCB1_INT_vect)
     // Pull DISP_LATCH low before sending new data
     PORTA.OUTCLR = PIN1_bm;
 
-    if (state != PLAYING)
+    if (state == TRACK_SELECT || (state == PAUSED && selected_track == 4 && !(PORTA.IN & PIN4_bm)))
     {
         swap_display_digit();
     } // keeps running to keep the both numbers running, swapping the display at 100hz(?)

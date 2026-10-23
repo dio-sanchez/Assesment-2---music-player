@@ -7,6 +7,7 @@
 void buzzer_play_freq(uint16_t freq) {
     if (freq == 0) {
         TCA0.SINGLE.CTRLB &= ~(TCA_SINGLE_CMP0EN_bm); // Disable output
+        TCA0.SINGLE.CMP0 = 0;
         return;
     }
     
