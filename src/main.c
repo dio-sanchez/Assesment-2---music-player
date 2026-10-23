@@ -164,19 +164,19 @@ void state_machine(void)
             selected_track += 1;
           }
         }
+        if (pb_falling_edge & PIN7_bm)
+        {
+          state = PLAYING;
+          current_track_index = track_start[selected_track - 1] * 4; // example, to be changed later when implementing the track selection logic
+          if (selected_track == 4)
+          {
+            lfsr_state = 0x12412821;
+          }
+          if (note_duration_5ms == 0)
+            fetch_next_note = 1;
+        }
       }
       //////////button 4////////////
-      if (pb_falling_edge & PIN7_bm)
-      {
-        state = PLAYING;
-        current_track_index = track_start[selected_track - 1] * 4; // example, to be changed later when implementing the track selection logic
-        if (selected_track == 4)
-        {
-          lfsr_state = 0x12412821;
-        }
-        if (note_duration_5ms == 0)
-          fetch_next_note = 1;
-      }
       break;
 
       //////////////////////// case playing /////////////////////////////////////
@@ -250,8 +250,10 @@ void state_machine(void)
       //////////////////////////// case paused ///////////////////////////////
 
     case PAUSED:
+    
       if ((selected_track == 4) && !(pb_state & PIN4_bm)) // while the button is held down show the current calue of the pot
       {
+        pb_falling_edge &= ~(PIN5_bm | PIN6_bm | PIN7_bm);
         uint8_t preview_seek = ADC0.RESULT;
         find_hex_digits(preview_seek, &digit1, &digit0);
       }
