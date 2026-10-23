@@ -6,7 +6,6 @@
 void buzzer_stop(void)
 {
     TCA0.SINGLE.CTRLB &= ~TCA_SINGLE_CMP0EN_bm;
-    TCA0.SINGLE.CMP0 = 0;
     PORTB.OUTCLR = PIN0_bm;
 }
 void buzzer_play_freq(uint16_t freq)
@@ -23,5 +22,6 @@ void buzzer_play_freq(uint16_t freq)
     TCA0.SINGLE.PER = period;
     TCA0.SINGLE.CMP0 = period / 2;             // 50% duty cycle for square wave
     TCA0.SINGLE.CMP1 = period;                 // supposed to maintain the brightess as a maximum
+    TCA0.SINGLE.CNT = 0;                       // restart the period so PER never sits below CNT
     TCA0.SINGLE.CTRLB |= TCA_SINGLE_CMP0EN_bm; // Enable output
 }
