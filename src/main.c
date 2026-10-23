@@ -167,7 +167,11 @@ void state_machine(void)
       //////////////////////// case playing /////////////////////////////////////
 
     case PLAYING:
-      if (pb_falling_edge & PIN7_bm)
+      if (pb_falling_edge & PIN6_bm)
+      {
+        state = TRACK_SELECT;
+      }
+      else if (pb_falling_edge & PIN7_bm)
       {
         state = PAUSED;
       }
@@ -199,7 +203,9 @@ void state_machine(void)
 
           // advance to next track, unless currently on track 4
           if (selected_track < 4)
+          {
             selected_track++;
+          }
           continue;
         }
 
@@ -225,10 +231,6 @@ void state_machine(void)
       }
       break;
 
-      if (pb_falling_edge & PIN6_bm)
-      {
-        state = TRACK_SELECT;
-      }
       break;
       //////////////////////////// case paused ///////////////////////////////
 
@@ -268,9 +270,12 @@ void state_machine(void)
         }
 
         // parse
+        uint8_t duration = decoded_bytes[0];
         uint8_t octave = decoded_bytes[1] >> 4;
         uint8_t note = decoded_bytes[1] & 0x0F;
         uint8_t display = decoded_bytes[2];
+
+        current_full_duration = duration * current_multiplier;
 
         // apply pitch duration and siplay
         buzzer_play_freq(calculate_frequency(octave, note));
@@ -303,20 +308,30 @@ void state_machine(void)
         // check for terminating instruction (0x00 0x00 0x00)
         if (decoded_bytes[0] == 0 && decoded_bytes[1] == 0 && decoded_bytes[2] == 0)
         {
-          state = TRACK_SELECT;
           buzzer_stop();
 
           // advance to next track, unless currently on track 4
           if (selected_track < 4)
+          {
             selected_track++;
+            current_track_index = track_start[selected_track - 1] * 4;
+          }
+          else
+          {
+            state = TRACK_SELECT;
+          }
+          continue;
         }
         else
         {
 
           // parse
+          uint8_t duration = decoded_bytes[0];
           uint8_t octave = decoded_bytes[1] >> 4;
           uint8_t note = decoded_bytes[1] & 0x0F;
           uint8_t display = decoded_bytes[2];
+
+          current_full_duration = duration * current_multiplier;
 
           // apply pitch duration and siplay
           buzzer_play_freq(calculate_frequency(octave, note));
@@ -328,14 +343,17 @@ void state_machine(void)
           current_track_index += 4;
         }
       }
-      if (pb_falling_edge & PIN7_bm)
+      if (pb_falling_edge & PIN6_bm)
+      {
+        state = TRACK_SELECT;
+      }
+      else if (pb_falling_edge & PIN7_bm)
       {
         state = PLAYING;
         note_duration_5ms = current_full_duration;
-      }
-      else if (pb_falling_edge & PIN6_bm)
-      {
-        state = TRACK_SELECT;
+
+        if (note_duration_5ms == 0)
+          fetch_next_note = 1;
       }
 
       break;
