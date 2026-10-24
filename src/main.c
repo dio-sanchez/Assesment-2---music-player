@@ -272,125 +272,145 @@ void state_machine(void)
         fetch_next_note = 0;
         if (is_preview)
         {
+          // reviews serial
           if (preview_index >= 24)
           {
-            finish_track();
-            break;
-          }
-          uint8_t ins[3];
-          memcpy(ins, &preview_buffer[preview_index], 3);
-          preview_index += 3;
-          execute_instruction(ins, current_multiplier, &current_full_duration);
-        }
-        else if (apply_instruction())
-        {
-          finish_track();
-          break;
-        } else
-        start_note_timer();
-        // pending s4 pressed at the same moment, handled in the next loo :)
-      }
-      break;
-      //////////////////////////// case paused ///////////////////////////////
-
-    case PAUSED:
-    {
-      uint8_t seekable = (selected_track == 4);
-
-      if (seekable && s1_held)
-      {
-        find_hex_digits(ADC0.RESULT, &digit1, &digit0);
-        break; // other buttons ignored while S1 held
-      }
-      if (seekable && (pb_rising_edge & PIN4_bm))
-      {
-        seek_track4(ADC0.RESULT);
-        break;
-      }
-
-      if (pb_falling_edge & PIN6_bm)
-      {
-        stop_playback();
-      }
-      else if (pb_falling_edge & PIN5_bm)
-      {
-        if (apply_instruction())
-          finish_track();
-      }
-      else if (pb_falling_edge & PIN7_bm)
-      {
-        state = PLAYING;
-        start_note_timer(); // full duration again
-      }
-      break;
-    }
-    }
-
-    char c;
-    if (uart_take_char(&c))
-    {
-      // Always reset if a backslash is received, preventing desync
-      if (c == '\\')
-      {
-        serial_state = PARSER_IDENTIFIER;
-      }
-      else
-      {
-        switch (serial_state)
-        {
-        case PARSER_IDLE:
-          break;
-        case PARSER_IDENTIFIER:
-          command_id = c;
-          if (command_id == 'm')
-          {
-            payload_index = 0;
-            serial_state = PARSER_PAYLOAD;
+            stop_playback;
+            is_preview = 0;
           }
           else
           {
-            process_serial_command(command_id, NULL);
-            serial_state = PARSER_IDLE;
+            uint8_t ins[3];
+            ins[0] = preview_buffer[preview_index++];
+            ins[1] = preview_buffer[preview_index++];
+            ins[2] = preview_buffer[preview_index++];
+
+            // execute_instruction automatically sets frequency, updates display, and checks for terminator[cite: 3]
+            if (execute_instruction(ins, current_multiplier, &current_full_duration))
+            {
+              stop_playback();
+              is_preview = 0;
+            }
+            else
+            {
+              start_note_timer();
+            }
           }
-          break;
-        case PARSER_PAYLOAD:
-          if (command_id == 'm')
+        }
+        else
+        {
+          // normal playback
+          if (apply_instruction())
           {
-            // Validate Base64 character
-            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'))
-            {
-              printf("#NACK\n");
-              serial_state = PARSER_IDLE;
-              break;
-            }
-            payload[payload_index++] = c;
-            if (payload_index == 32)
-            {
-              process_serial_command(command_id, payload);
-              serial_state = PARSER_IDLE;
-            }
+            finish_track();
           }
+          else
+          {
+            start_note_timer();
+          }
+        }
+      }
+        break;
+        //////////////////////////// case paused ///////////////////////////////
+
+      case PAUSED:
+      {
+        uint8_t seekable = (selected_track == 4);
+
+        if (seekable && s1_held)
+        {
+          find_hex_digits(ADC0.RESULT, &digit1, &digit0);
+          break; // other buttons ignored while S1 held
+        }
+        if (seekable && (pb_rising_edge & PIN4_bm))
+        {
+          seek_track4(ADC0.RESULT);
           break;
+        }
+
+        if (pb_falling_edge & PIN6_bm)
+        {
+          stop_playback();
+        }
+        else if (pb_falling_edge & PIN5_bm)
+        {
+          if (apply_instruction())
+            finish_track();
+        }
+        else if (pb_falling_edge & PIN7_bm)
+        {
+          state = PLAYING;
+          start_note_timer(); // full duration again
+        }
+        break;
+      }
+      }
+
+      char c;
+      if (uart_take_char(&c))
+      {
+        // Always reset if a backslash is received, preventing desync
+        if (c == '\\')
+        {
+          serial_state = PARSER_IDENTIFIER;
+        }
+        else
+        {
+          switch (serial_state)
+          {
+          case PARSER_IDLE:
+            break;
+          case PARSER_IDENTIFIER:
+            command_id = c;
+            if (command_id == 'm')
+            {
+              payload_index = 0;
+              serial_state = PARSER_PAYLOAD;
+            }
+            else
+            {
+              process_serial_command(command_id, NULL);
+              serial_state = PARSER_IDLE;
+            }
+            break;
+          case PARSER_PAYLOAD:
+            if (command_id == 'm')
+            {
+              // Validate Base64 character
+              if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'))
+              {
+                printf("#NACK\n");
+                serial_state = PARSER_IDLE;
+                break;
+              }
+              payload[payload_index++] = c;
+              if (payload_index == 32)
+              {
+                process_serial_command(command_id, payload);
+                serial_state = PARSER_IDLE;
+              }
+            }
+            break;
+          }
         }
       }
     }
   }
-}
-int main(void)
-{
-  cli();
-  buttons_init();
-  display_init();
-  timer_init();
-  adc_init(); // potentiometer
-  pwm_init(); // pulse width modulation
-  uart_init();
-  stdio_init();
-  sei();
+  int main(void)
+  {
+    cli();
+    buttons_init();
+    display_init();
+    timer_init();
+    adc_init(); // potentiometer
+    pwm_init(); // pulse width modulation
+    uart_init();
+    stdio_init();
+    sei();
 
-  state_machine();
+    state_machine();
 
-  // The program should not reach this point
-  while (1)
-    ;
-}
+    // The program should not reach this point
+    while (1)
+      ;
+  }
