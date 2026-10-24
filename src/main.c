@@ -58,7 +58,7 @@ uint8_t payload_index = 0;
 volatile uint8_t serial_edges = 0;
 
 // stops theb buzzer and playback
- void stop_playback(void)
+void stop_playback(void)
 {
   buzzer_stop();
   cli();
@@ -68,7 +68,7 @@ volatile uint8_t serial_edges = 0;
   current_full_duration = 0;
   state = TRACK_SELECT;
 }
- void start_note_timer(void)
+void start_note_timer(void)
 {
   cli();
   note_duration_5ms = current_full_duration;
@@ -78,7 +78,7 @@ volatile uint8_t serial_edges = 0;
 }
 
 // Track 4 seek: jump to the instruction, advance the LFSR to match, apply it.
- void seek_track4(uint8_t seek_value)
+void seek_track4(uint8_t seek_value)
 {
   uint16_t offset = 8 * (uint16_t)seek_value;
 
@@ -91,13 +91,19 @@ volatile uint8_t serial_edges = 0;
 }
 
 // Common end-of-track handling (terminator reached).
- void finish_track(void)
+void finish_track(void)
 {
-  stop_playback(); // helper from fix 2
+  // helper from fix 2
   if (selected_track < 4)
+  {
     selected_track++;
+    current_track_index = track_start[selected_track - 1] * 4;
+    fetch_next_note = 1;
+  }
+  else
+    stop_playback();
 }
- uint8_t apply_instruction(void)
+uint8_t apply_instruction(void)
 {
   uint8_t ins[3];
   fetch_instruction(current_track_index, selected_track == 4, &lfsr_state, ins);
@@ -231,7 +237,7 @@ void state_machine(void)
       //////////////////////////// case paused ///////////////////////////////
 
     case PAUSED:
-{
+    {
       uint8_t seekable = (selected_track == 4);
 
       if (seekable && s1_held)
