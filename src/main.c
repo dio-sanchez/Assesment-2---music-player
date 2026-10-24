@@ -4,6 +4,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <util/delay.h>
 
 // custom headers
 #include "data.h"
@@ -14,6 +15,8 @@
 #include "timer.h"
 #include "decoder.h"
 #include "globals.h"
+
+#define F_CPU 3333333UL
 
 // curent state of the machine to start in select track
 machine_state state = TRACK_SELECT;
@@ -116,11 +119,34 @@ void process_serial_command(char id, char *payload_data)
   switch (id)
   {
   case 't':
-    // TODO: Decode and descramble test_message
-    // printf("? %s\n", decoded_text);
+  {
+    uint32_t test_lfsr = 0x12412821;
+
+    char decoded_text[25];
+
+    for (uint8_t i = 0; i < 8; i++)
+    {
+      char b64_chars[4];
+
+      // fetch 4 characters from the PROGMEM array
+      memcpy_P(b64_chars, &test_message[i * 4], 4);
+
+      // decode the Base64 chunk into 3 bytes
+      uint8_t decoded_bytes[3];
+      decode_block(b64_chars, decoded_bytes);
+
+      // descramble the bytes directly into our text buffer
+      decoded_text[i * 3 + 0] = descramble_byte(decoded_bytes[0], &test_lfsr);
+      decoded_text[i * 3 + 1] = descramble_byte(decoded_bytes[1], &test_lfsr);
+      decoded_text[i * 3 + 2] = descramble_byte(decoded_bytes[2], &test_lfsr);
+    }
+
+    // nll-terminate the string so printf knows where it ends
+    decoded_text[24] = '\0';
+    printf("? %s\n", decoded_text);
     printf("#ACK\n");
     break;
-
+  }
   case '2':
     if (state == PLAYING)
     {
@@ -146,11 +172,46 @@ void process_serial_command(char id, char *payload_data)
   case 'm':
     if (state != TRACK_SELECT)
     {
-      printf("#NACK\n"); // Only valid in TRACK_SELECT[cite: 18]
+      printf("#NACK\n");
     }
     else
     {
-      // TODO: Add Base64 validation and instruction playback logic here[cite: 17, 18]
+      uint32_t serial_lfsr = 0x12412821;
+      uint16_t serial_duration = 0;
+
+      // 32-character payload contains 8 instructions (4 characters each)
+      for (uint8_t i = 0; i < 8; i++)
+      {
+        char b64_chars[4];
+        b64_chars[0] = payload_data[i * 4 + 0];
+        b64_chars[1] = payload_data[i * 4 + 1];
+        b64_chars[2] = payload_data[i * 4 + 2];
+        b64_chars[3] = payload_data[i * 4 + 3];
+
+        uint8_t decoded_bytes[3];
+        decode_block(b64_chars, decoded_bytes); // function from decoder.c
+
+        // LFSR function to descramble the bytes
+        for (uint8_t j = 0; j < 3; j++)
+        {
+          decoded_bytes[j] = descramble_byte(decoded_bytes[j], &serial_lfsr);
+        }
+
+        // execute_instruction automatically sets frequency, updates display, and checks for terminator (returns 1)
+        if (execute_instruction(decoded_bytes, current_multiplier, &serial_duration))
+        {
+          break; // Terminator reached
+        }
+
+        // wait for the duration filled by execute_instruction
+        uint16_t total_delay_ms = serial_duration * 5;
+        for (uint16_t d = 0; d < total_delay_ms; d++)
+        {
+          _delay_ms(1);
+        }
+      }
+
+      buzzer_stop();
       printf("#ACK\n");
     }
     break;
