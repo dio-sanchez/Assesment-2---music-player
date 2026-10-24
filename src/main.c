@@ -16,7 +16,6 @@
 #include "decoder.h"
 #include "globals.h"
 
-
 // curent state of the machine to start in select track
 machine_state state = TRACK_SELECT;
 
@@ -51,6 +50,11 @@ typedef enum
   PARSER_IDENTIFIER,
   PARSER_PAYLOAD
 } parser_state_t;
+
+//[arser variables for \m
+uint8_t is_preview = 0; // these three were made cause \m was delaying the program when an incorrect input was given
+uint8_t preview_buffer[24];
+uint8_t preview_index = 0;
 
 parser_state_t serial_state = PARSER_IDLE;
 char command_id = 0;
@@ -176,41 +180,22 @@ void process_serial_command(char id, char *payload_data)
     else
     {
       uint32_t serial_lfsr = 0x12412821;
-      uint16_t serial_duration = 0;
+      uint16_t buf_index = 0;
 
       // 32-character payload contains 8 instructions (4 characters each)
       for (uint8_t i = 0; i < 8; i++)
       {
-        char b64_chars[4];
-        b64_chars[0] = payload_data[i * 4 + 0];
-        b64_chars[1] = payload_data[i * 4 + 1];
-        b64_chars[2] = payload_data[i * 4 + 2];
-        b64_chars[3] = payload_data[i * 4 + 3];
-
+        char b64_chars[4] = {payload_data[i * 4], payload_data[i * 4 + 1], payload_data[i * 4 + 2], payload_data[i * 4 + 3]};
         uint8_t decoded_bytes[3];
-        decode_block(b64_chars, decoded_bytes); // function from decoder.c
-
-        // LFSR function to descramble the bytes
-        for (uint8_t j = 0; j < 3; j++)
-        {
-          decoded_bytes[j] = descramble_byte(decoded_bytes[j], &serial_lfsr);
-        }
-
-        // execute_instruction automatically sets frequency, updates display, and checks for terminator (returns 1)
-        if (execute_instruction(decoded_bytes, current_multiplier, &serial_duration))
-        {
-          break; // Terminator reached
-        }
-
-        // wait for the duration filled by execute_instruction
-        uint16_t total_delay_ms = serial_duration * 5;
-        for (uint16_t d = 0; d < total_delay_ms; d++)
-        {
-          _delay_ms(1);
-        }
+        decode_block(b64_chars, decoded_bytes);
+        preview_buffer[buf_index++] = descramble_byte(decoded_bytes[0], &serial_lfsr);
+        preview_buffer[buf_index++] = descramble_byte(decoded_bytes[1], &serial_lfsr);
+        preview_buffer[buf_index++] = descramble_byte(decoded_bytes[2], &serial_lfsr);
       }
-
-      buzzer_stop();
+      preview_index = 0;
+      is_preview = 1; // flag to tell the state machine this is a serial preview
+      state = PLAYING;
+      fetch_next_note = 1;
       printf("#ACK\n");
     }
     break;
@@ -278,20 +263,32 @@ void state_machine(void)
       {
         stop_playback();
       }
+      else if (!is_preview && (pb_falling_edge & PIN7_bm))
+      {
+        state = PAUSED;
+      }
       else if (fetch_next_note)
       {
         fetch_next_note = 0;
-        if (apply_instruction())
+        if (is_preview)
+        {
+          if (preview_index >= 24)
+          {
+            finish_track();
+            break;
+          }
+          uint8_t ins[3];
+          memcpy(ins, &preview_buffer[preview_index], 3);
+          preview_index += 3;
+          execute_instruction(ins, current_multiplier, &current_full_duration);
+        }
+        else if (apply_instruction())
         {
           finish_track();
           break;
-        }
+        } else
         start_note_timer();
         // pending s4 pressed at the same moment, handled in the next loo :)
-      }
-      else if (pb_falling_edge & PIN7_bm)
-      {
-        state = PAUSED;
       }
       break;
       //////////////////////////// case paused ///////////////////////////////
@@ -332,45 +329,53 @@ void state_machine(void)
     char c;
     if (uart_take_char(&c))
     {
-      switch (serial_state)
+      // Always reset if a backslash is received, preventing desync
+      if (c == '\\')
       {
-      case PARSER_IDLE:
-        if (c == '\\')
+        serial_state = PARSER_IDENTIFIER;
+      }
+      else
+      {
+        switch (serial_state)
         {
-          serial_state = PARSER_IDENTIFIER;
-        }
-        break;
-
-      case PARSER_IDENTIFIER:
-        command_id = c;
-        if (command_id == 'm')
-        {
-          payload_index = 0;
-          serial_state = PARSER_PAYLOAD;
-        }
-        else
-        {
-          process_serial_command(command_id, NULL);
-          serial_state = PARSER_IDLE;
-        }
-        break;
-
-      case PARSER_PAYLOAD:
-        if (command_id == 'm')
-        {
-          payload[payload_index++] = c;
-          if (payload_index == 32)
+        case PARSER_IDLE:
+          break;
+        case PARSER_IDENTIFIER:
+          command_id = c;
+          if (command_id == 'm')
           {
-            process_serial_command(command_id, payload);
+            payload_index = 0;
+            serial_state = PARSER_PAYLOAD;
+          }
+          else
+          {
+            process_serial_command(command_id, NULL);
             serial_state = PARSER_IDLE;
           }
+          break;
+        case PARSER_PAYLOAD:
+          if (command_id == 'm')
+          {
+            // Validate Base64 character
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'))
+            {
+              printf("#NACK\n");
+              serial_state = PARSER_IDLE;
+              break;
+            }
+            payload[payload_index++] = c;
+            if (payload_index == 32)
+            {
+              process_serial_command(command_id, payload);
+              serial_state = PARSER_IDLE;
+            }
+          }
+          break;
         }
-        break;
       }
     }
   }
 }
-
 int main(void)
 {
   cli();
