@@ -16,7 +16,6 @@
 #include "decoder.h"
 #include "globals.h"
 
-#define F_CPU 3333333UL
 
 // curent state of the machine to start in select track
 machine_state state = TRACK_SELECT;
