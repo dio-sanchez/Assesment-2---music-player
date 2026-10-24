@@ -228,10 +228,10 @@ void state_machine(void)
     // read and save the state of the buttons
     uint8_t pb_state_old = pb_state;
     pb_state = pb_debounced_state;
-    pb_falling_edge = pb_state_old & ~pb_state;
-    serial_edges = 0;
+    pb_falling_edge = (pb_state_old & ~pb_state) | serial_edges;
     uint8_t pb_rising_edge = ~pb_state_old & pb_state;
     uint8_t s1_held = !(pb_state & PIN4_bm);
+    serial_edges = 0;
 
     switch (state)
     {
