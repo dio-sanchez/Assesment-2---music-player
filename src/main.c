@@ -56,6 +56,13 @@ uint8_t is_preview = 0; // these three were made cause \m was delaying the progr
 uint8_t preview_buffer[24];
 uint8_t preview_index = 0;
 
+static uint8_t is_base64_char(char c)
+{
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+         (c >= '0' && c <= '9') || c == '+' || c == '/';
+}
+static uint8_t payload_invalid = 0;
+
 parser_state_t serial_state = PARSER_IDLE;
 char command_id = 0;
 char payload[32];
@@ -174,6 +181,10 @@ void process_serial_command(char id, char *payload_data)
     if (state != TRACK_SELECT)
     {
       printf("#NACK\n");
+    }
+    else if (!(pb_state & PIN4_bm)) // S1 held: acknowledge, no effect
+    {
+      printf("#ACK\n");
     }
     else
     {
@@ -347,49 +358,41 @@ void state_machine(void)
     char c;
     if (uart_take_char(&c))
     {
-      // Always reset if a backslash is received, preventing desync
-      if (c == '\\')
+      switch (serial_state)
       {
-        serial_state = PARSER_IDENTIFIER;
-      }
-      else
-      {
-        switch (serial_state)
+      case PARSER_IDLE:
+        if (c == '\\')
+          serial_state = PARSER_IDENTIFIER;
+        break;
+
+      case PARSER_IDENTIFIER:
+        command_id = c;
+        if (c == 'm')
         {
-        case PARSER_IDLE:
-          break;
-        case PARSER_IDENTIFIER:
-          command_id = c;
-          if (command_id == 'm')
-          {
-            payload_index = 0;
-            serial_state = PARSER_PAYLOAD;
-          }
-          else
-          {
-            process_serial_command(command_id, NULL);
-            serial_state = PARSER_IDLE;
-          }
-          break;
-        case PARSER_PAYLOAD:
-          if (command_id == 'm')
-          {
-            // Validate Base64 character
-            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'))
-            {
-              printf("#NACK\n");
-              serial_state = PARSER_IDLE;
-              break;
-            }
-            payload[payload_index++] = c;
-            if (payload_index == 32)
-            {
-              process_serial_command(command_id, payload);
-              serial_state = PARSER_IDLE;
-            }
-          }
-          break;
+          payload_index = 0;
+          payload_invalid = 0;
+          serial_state = PARSER_PAYLOAD;
         }
+        else
+        {
+          process_serial_command(c, NULL);
+          serial_state = PARSER_IDLE;
+        }
+        break;
+
+      case PARSER_PAYLOAD: // a '\' here is just a bad character
+        if (!is_base64_char(c))
+          payload_invalid = 1;
+        payload[payload_index++] = c;
+        if (payload_index == 32)
+        {
+          if (payload_invalid)
+            printf("#NACK\n");
+          else
+            process_serial_command('m', payload);
+          serial_state = PARSER_IDLE;
+        }
+        break;
       }
     }
   }
