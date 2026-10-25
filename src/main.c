@@ -405,7 +405,6 @@ int main(void)
   uart_init();
   stdio_init();
   sei();
-
   state_machine();
 
   // The program should not reach this point
