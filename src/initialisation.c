@@ -46,12 +46,11 @@ void timer_init(void)
     sei(); // enable them back        // Enable TCB1
 }
 
-
 void uart_init(void)
 {
-    PORTB.DIRSET = PIN2_bm; // enable PB2 as an output
+    PORTB.DIRSET = PIN2_bm;                       // enable PB2 as an output
     USART0.BAUD = 1389;                           // 9600 BAUD @ 3.33 MHz
-    USART0.CTRLA = USART_RXCIE_bm;   // enable DRE / RX interrupts
+    USART0.CTRLA = USART_RXCIE_bm;                // enable DRE / RX interrupts
     USART0.CTRLB = USART_RXEN_bm | USART_TXEN_bm; // enable Tx/Rx
 } // uart_init
 
@@ -69,18 +68,14 @@ void adc_init(void)
 void pwm_init(void)
 {
     // SETS the disp as an output
-    PORTB.OUTCLR = PIN1_bm;
+    PORTB.OUTSET = PIN1_bm;
     PORTB.DIRSET = PIN1_bm;
 
     PORTB.OUTSET = PIN0_bm;
     PORTB.DIRSET = PIN0_bm;
 
+    TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_SINGLESLOPE_gc;
+    TCA0.SINGLE.PER = 1000;
+    TCA0.SINGLE.CMP0 = 0;
     TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc;
-    TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_SINGLESLOPE_gc | TCA_SINGLE_CMP1EN_bm;
-
-    TCA0.SINGLE.PER = TCA_SINGLE_PERBV_bm;
-    // led brightness percentage
-    TCA0.SINGLE.CMP1 = TCA_SINGLE_CMP1_bm;
-
-    TCA0.SINGLE.CTRLA |= 0x01;
 }

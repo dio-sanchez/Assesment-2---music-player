@@ -72,6 +72,7 @@ void stop_playback(void)
   fetch_next_note = 0;
   sei();
   current_full_duration = 0;
+  is_preview = 0;
   state = TRACK_SELECT;
 }
 void start_note_timer(void)
@@ -100,14 +101,11 @@ void seek_track4(uint8_t seek_value)
 void finish_track(void)
 {
   // helper from fix 2
+  stop_playback();
   if (selected_track < 4)
   {
     selected_track++;
-    current_track_index = track_start[selected_track - 1] * 4;
-    fetch_next_note = 1;
   }
-  else
-    stop_playback();
 }
 uint8_t apply_instruction(void)
 {
@@ -275,7 +273,7 @@ void state_machine(void)
           // reviews serial
           if (preview_index >= 24)
           {
-            stop_playback;
+            stop_playback();
             is_preview = 0;
           }
           else
@@ -310,107 +308,107 @@ void state_machine(void)
           }
         }
       }
-        break;
-        //////////////////////////// case paused ///////////////////////////////
+      break;
+      //////////////////////////// case paused ///////////////////////////////
 
-      case PAUSED:
+    case PAUSED:
+    {
+      uint8_t seekable = (selected_track == 4);
+
+      if (seekable && s1_held)
       {
-        uint8_t seekable = (selected_track == 4);
+        find_hex_digits(ADC0.RESULT, &digit1, &digit0);
+        break; // other buttons ignored while S1 held
+      }
+      if (seekable && (pb_rising_edge & PIN4_bm))
+      {
+        seek_track4(ADC0.RESULT);
+        break;
+      }
 
-        if (seekable && s1_held)
+      if (pb_falling_edge & PIN6_bm)
+      {
+        stop_playback();
+      }
+      else if (pb_falling_edge & PIN5_bm)
+      {
+        if (apply_instruction())
+          finish_track();
+      }
+      else if (pb_falling_edge & PIN7_bm)
+      {
+        state = PLAYING;
+        start_note_timer(); // full duration again
+      }
+      break;
+    }
+    }
+
+    char c;
+    if (uart_take_char(&c))
+    {
+      // Always reset if a backslash is received, preventing desync
+      if (c == '\\')
+      {
+        serial_state = PARSER_IDENTIFIER;
+      }
+      else
+      {
+        switch (serial_state)
         {
-          find_hex_digits(ADC0.RESULT, &digit1, &digit0);
-          break; // other buttons ignored while S1 held
-        }
-        if (seekable && (pb_rising_edge & PIN4_bm))
-        {
-          seek_track4(ADC0.RESULT);
+        case PARSER_IDLE:
           break;
-        }
-
-        if (pb_falling_edge & PIN6_bm)
-        {
-          stop_playback();
-        }
-        else if (pb_falling_edge & PIN5_bm)
-        {
-          if (apply_instruction())
-            finish_track();
-        }
-        else if (pb_falling_edge & PIN7_bm)
-        {
-          state = PLAYING;
-          start_note_timer(); // full duration again
-        }
-        break;
-      }
-      }
-
-      char c;
-      if (uart_take_char(&c))
-      {
-        // Always reset if a backslash is received, preventing desync
-        if (c == '\\')
-        {
-          serial_state = PARSER_IDENTIFIER;
-        }
-        else
-        {
-          switch (serial_state)
+        case PARSER_IDENTIFIER:
+          command_id = c;
+          if (command_id == 'm')
           {
-          case PARSER_IDLE:
-            break;
-          case PARSER_IDENTIFIER:
-            command_id = c;
-            if (command_id == 'm')
+            payload_index = 0;
+            serial_state = PARSER_PAYLOAD;
+          }
+          else
+          {
+            process_serial_command(command_id, NULL);
+            serial_state = PARSER_IDLE;
+          }
+          break;
+        case PARSER_PAYLOAD:
+          if (command_id == 'm')
+          {
+            // Validate Base64 character
+            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'))
             {
-              payload_index = 0;
-              serial_state = PARSER_PAYLOAD;
+              printf("#NACK\n");
+              serial_state = PARSER_IDLE;
+              break;
             }
-            else
+            payload[payload_index++] = c;
+            if (payload_index == 32)
             {
-              process_serial_command(command_id, NULL);
+              process_serial_command(command_id, payload);
               serial_state = PARSER_IDLE;
             }
-            break;
-          case PARSER_PAYLOAD:
-            if (command_id == 'm')
-            {
-              // Validate Base64 character
-              if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'))
-              {
-                printf("#NACK\n");
-                serial_state = PARSER_IDLE;
-                break;
-              }
-              payload[payload_index++] = c;
-              if (payload_index == 32)
-              {
-                process_serial_command(command_id, payload);
-                serial_state = PARSER_IDLE;
-              }
-            }
-            break;
           }
+          break;
         }
       }
     }
   }
-  int main(void)
-  {
-    cli();
-    buttons_init();
-    display_init();
-    timer_init();
-    adc_init(); // potentiometer
-    pwm_init(); // pulse width modulation
-    uart_init();
-    stdio_init();
-    sei();
+}
+int main(void)
+{
+  cli();
+  buttons_init();
+  display_init();
+  timer_init();
+  adc_init(); // potentiometer
+  pwm_init(); // pulse width modulation
+  uart_init();
+  stdio_init();
+  sei();
 
-    state_machine();
+  state_machine();
 
-    // The program should not reach this point
-    while (1)
-      ;
-  }
+  // The program should not reach this point
+  while (1)
+    ;
+}
